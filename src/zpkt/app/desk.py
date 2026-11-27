@@ -24,6 +24,7 @@ from typing import Any
 
 from zpkt.app import (
     abilities,
+    bounce_commands,
     change,
     deskstate,
     history,
@@ -221,6 +222,7 @@ class Desk:
         change.register(bus, self)
         propose.register(bus, self)
         steps_commands.register(bus, self)
+        bounce_commands.register(bus, self)
         jobs.register(bus, self.conn, self.descriptions.clear)
         return bus
 

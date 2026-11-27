@@ -6,7 +6,8 @@ The class decides the bus's checks (zpkt.app.bus):
 - make: it makes or changes pages, files or checkpoints. Live's set stays as it is. An agent may.
 - move: it changes Live (the mix, the tempo, the transport, what is heard, the pager and what the MiniLab's controls
   do) or runs code or a build there. An agent needs your word, and the wrong-set guard holds it. The moves an
-  agent may ask for on its own are in AGENT_MAY, below: `live.change`, and `ability.run`, whose word you gave before.
+  agent may ask for on its own are in AGENT_MAY, below: `live.change`, `ability.run`, whose word you gave before,
+  and `render.bounce`, which changes nothing of the mix.
 
 Every module that puts commands on the bus takes the class from here (`register`), so a command without a line in
 this table cannot start. tests/app/test_effects.py writes the whole list out again: a change here is a decision.
@@ -48,6 +49,13 @@ These lines are decisions worth their reason:
   notes and clips into the Arrangement or make a track. Anthony, 26 November 2026, asked for a step sequencer for
   himself and his controller: the page and the API's callers may use them, and an agent only the reads
   (`steps.tracks`, `steps.sounds`, `steps.read`, `steps.kits`).
+- `render.bounce` is a move, and the third move an agent may ask for with no word of yours (AGENT_MAY). Anthony,
+  26 November 2026: "The agent thinks it can't run a render. It should know how to bounce tracks and projects. And
+  efficiently access the results without pulling them fully into context." It is a move because it takes Live for
+  the export, stops playback and leaves a heard reference for Now. It changes no value of the mix, writes only
+  new files in the bounce folder, and puts the loop and a heard Pin back, so it saves no version and leaves no
+  History row. It can render nothing but the mix and the set's own tracks (never a monitor track), at most four
+  files and ten minutes of audio a call. `render.measure` only reads audio files and answers in a few numbers.
 - `steps.focus` is a move though it writes nothing into Live: it says what the sequencer has in hand, and with that
   what the MiniLab's pads will do, under your hands (as `page.arm` does). `steps.loop` moves the transport's loop.
 """
@@ -113,6 +121,9 @@ EFFECTS: dict[str, Effect] = {
     "steps.new_track": "move",
     "steps.focus": "move",
     "steps.loop": "move",
+    # bounce and measure: how an agent hears (zpkt.app.bounce_commands)
+    "render.bounce": "move",
+    "render.measure": "read",
     # the jobs (zpkt.app.jobs)
     "live.run": "move",
     "live.read": "read",
@@ -135,7 +146,7 @@ EFFECTS: dict[str, Effect] = {
 
 # The moves an agent may ask for on its own. The docstring above has the reason for each; tests/app/test_effects.py
 # writes this set out again.
-AGENT_MAY: frozenset[str] = frozenset({"live.change", "ability.run"})
+AGENT_MAY: frozenset[str] = frozenset({"live.change", "ability.run", "render.bounce"})
 
 
 def effect_of(kind: str) -> Effect:

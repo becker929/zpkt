@@ -1,9 +1,12 @@
-"""The tools an agent has: five app commands, and the key that lets a session call them.
+"""The tools an agent has: seven app commands, and the key that lets a session call them.
 
 An agent reaches the app through a small MCP server (mcp.py) that calls `POST /app/ask/api/tool`. Each call carries
-the session's id and its token. The gate checks the token, keeps only the five tools below, and submits the command
-to the bus as `agent`, grouped by the session. Three of them change nothing in Live: make a page, read the state,
-read the measurement. The other two are the two tiers of changing Live (Anthony, 26 November 2026):
+the session's id and its token. The gate checks the token, keeps only the seven tools below, and submits the command
+to the bus as `agent`, grouped by the session. Four of them change nothing in Live: make a page, read the state,
+read the measurement, measure an audio file. One renders: `bounce_audio` bounces the mix or named tracks over a range
+of bars and answers with each file's path and about twenty numbers, never the audio (zpkt.app.bounce_commands; it
+changes no value of the mix, and why an agent may: zpkt.app.effects). The other two are the two tiers of changing
+Live (Anthony, 26 November 2026):
 
 - `change_live`, act then undo: a batch of steps (set values; add, bypass, enable or reorder devices) in one call,
   which the app checks whole, runs one short step at a time and keeps as one History row that one undo takes back
@@ -44,6 +47,7 @@ from typing import Any
 from zpkt.app.abilities import TOOL_PREFIX as ABILITY_PREFIX  # an ability's tool is named ability_<name>
 from zpkt.app.bus import APPROVED_BY_USER, Bus, Command, Reply
 
+BOUNCE_TAKES_S = 240.0  # an export in Live: 13 s a file and 0.1 s per second of audio, at most four files of 600 s
 PROPOSE_WAIT_S = 240.0  # how long a proposal waits for the tap (Gemini CLI gives an MCP call 10 minutes in all)
 YES: dict[str, Any] = {"id": "yes", "name": "Do it", "kind": "allow_once"}
 ALWAYS: dict[str, Any] = {"id": "always", "name": "Always", "kind": "allow_always"}
@@ -60,6 +64,9 @@ class Tool:
     schema: dict[str, Any]  # JSON Schema of its arguments
     check: str = ""  # for a tool that waits for the person's tap: the read that checks the ask and writes its card
     wait_s: float = 0.0  # ... and how long the person has. mcp.py's HTTP timeout is longer by this much
+    takes_s: float = (
+        0.0  # for a tool whose own work is long (a bounce is an export in Live): the timeout is longer by this
+    )
 
 
 @dataclass(frozen=True)
@@ -107,6 +114,74 @@ TOOLS: tuple[Tool, ...] = (
         "measurement.read",
         "The last measurement of the renders: loudness, spectrum and the references, as the desk has them.",
         {"type": "object", "properties": {}},
+    ),
+    Tool(
+        "bounce_audio",
+        "render.bounce",
+        "Render audio from Live so you can measure it or the person can play it: the mix, or single tracks, groups "
+        "or returns, over a range of bars. Use it whenever you need to know how something sounds now; you may, "
+        "with no question asked. `what`: \"mix\" (Main's output, the default), a track's, group's or return's "
+        'name as read_state has it, or a list of up to 4 of those (one file each). `bars`: "loop" (the loop '
+        'brace), "song" (the whole Arrangement) or [first, last], whole bars counted from 1 with both '
+        "included; default the loop when it is on, else the song. Keep it short: 8 or 16 bars answer most "
+        "questions. `name`: optional, a word or two for the file's name. It takes about 13 s per file plus 0.1 s "
+        "per second of audio (at most 4 files and 600 s of audio a call), Live's window is busy meanwhile, and "
+        "playback stops (`stopped_playback`). Always Now is bounced: if a reference was heard it is left "
+        "(`was_hearing`), the Pin comes back afterwards; the loop comes back. Solos and mutes are left as they "
+        "are: `soloed` lists soloed tracks (the mix then holds only those; a single track is still bounced), and "
+        "a file with next to nothing in it has `silent`. A track's or group's file is its own output, after its "
+        "fader and before Main's devices, so it can be louder than the mix: compare tracks with tracks. The reply has `files`, each with `what`, `file` (the "
+        "path), `bars`, `seconds` and the short sheet: `lufs`, `true_peak_db`, `peak_db`, `rms_db`, `crest_db`, "
+        "`bands_db` (sub under 60 Hz, low to 250, mid to 2000, high to 6000, air above; parts of the RMS) and "
+        "`stereo` (`correlation`, `side_vs_mid_db`). That is all you need to read: never open the WAV, and never "
+        "run an analysis of it in the shell. For more, call measure_audio on the file. To let the person hear it, "
+        "put the path in an `audio` block. Nothing in the mix changes and there is no History row.",
+        {
+            "type": "object",
+            "properties": {
+                "what": {
+                    "description": 'What to bounce: "mix", a track, group or return name, or a list of up to 4.',
+                    "oneOf": [
+                        {"type": "string"},
+                        {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 4},
+                    ],
+                },
+                "bars": {
+                    "description": '"loop", "song" or [first, last]: whole bars from 1, both included.',
+                    "oneOf": [
+                        {"type": "string", "enum": ["loop", "song"]},
+                        {"type": "array", "items": {"type": "integer", "minimum": 1}, "minItems": 2, "maxItems": 2},
+                    ],
+                },
+                "name": {"type": "string", "description": "A word or two for the file's name."},
+            },
+        },
+        takes_s=BOUNCE_TAKES_S,
+    ),
+    Tool(
+        "measure_audio",
+        "render.measure",
+        "Measure an audio file in a few numbers, without loading it: one view of one window per call. With no "
+        "`file`: the bounces kept (newest first, with their bars) and the references' ids. `file`: a bounce's "
+        'path or file name, a reference\'s id as read_state names it ("C1"), or a path to an audio file inside '
+        'home. `detail`: "summary" (the default: the short sheet a bounce gives), "spectrum" '
+        '(`third_octaves_db`, 25 Hz to 16 kHz) or "over_time" (`rms_db` and `peak_db` step by step, with '
+        "`step` saying how many bars or seconds one step is: where a build rises, a drop hits or something drops "
+        "out). The window: `bars` [first, last] in the song's bars (a bounce knows its bars) or `seconds` [from, "
+        "to]; default the whole file. `against`: a second file or reference, measured the same way, and "
+        "`difference` (the first minus the second, number by number); a bounce is measured over the same bars, "
+        "a reference whole. Levels are dB relative to full scale; compare shapes (band against band) rather than "
+        "absolute levels when the two files differ in loudness. Reads files only: nothing in Live is touched.",
+        {
+            "type": "object",
+            "properties": {
+                "file": {"type": "string", "description": "A bounce's path or name, a reference id, or a path."},
+                "against": {"type": "string", "description": "A second file or reference to take the difference to."},
+                "detail": {"type": "string", "enum": ["summary", "spectrum", "over_time"]},
+                "bars": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2},
+                "seconds": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2},
+            },
+        },
     ),
     Tool(
         "change_live",
@@ -364,7 +439,7 @@ class ToolGate:
         return (list(reply.get("abilities") or []), int(reply.get("max") or 0)) if code == 200 else ([], 0)
 
     def tools(self) -> list[Tool]:
-        """The tools an agent has now: the five built in, then one for each ability."""
+        """The tools an agent has now: the seven built in, then one for each ability."""
         return [*TOOLS, *(ability_tool(a) for a in self.abilities()[0])]
 
     def call(self, session_id: str, token: str, tool: str, args: dict[str, Any]) -> Reply:

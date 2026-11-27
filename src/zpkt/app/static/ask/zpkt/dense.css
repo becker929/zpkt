@@ -51,7 +51,9 @@ a.pcard{padding:2px 6px 2px 4px;margin:2px 0;border-width:1px;min-height:0;gap:6
 #tools,#tools select,#tools button{height:32px;min-height:32px}
 #engine{width:54px;font-size:11px;padding-left:4px;padding-right:0}
 #ztools button,#moreBtn{width:28px}
-#in{min-height:30px;height:30px;padding:6px;font-size:12px}
+/* the text box keeps 16 px type: a phone zooms the whole page into any field with smaller type, and the cursor
+   jumps while it does. The row is no taller for it. */
+#in{min-height:30px;height:30px;padding:5px 6px;font-size:16px;line-height:20px}
 #send{height:30px;width:34px}
 
 /* a running turn: its bar keeps the Stop key a thumb hits */

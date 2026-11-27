@@ -1,6 +1,7 @@
-"""The agent's tools: they are bus commands tagged `agent` and reach nothing else. Three move nothing in Live; the
-fourth, change_live, changes it and can be undone (tests/app/test_live_change.py); the fifth, propose_live, changes
-it only after the person's tap (tests/app/test_propose_tool.py)."""
+"""The agent's tools: they are bus commands tagged `agent` and reach nothing else. Four move nothing in Live;
+bounce_audio renders from it and changes no value (tests/app/test_bounce.py); change_live changes it and can be
+undone (tests/app/test_live_change.py); propose_live changes it only after the person's tap
+(tests/app/test_propose_tool.py)."""
 
 from __future__ import annotations
 
@@ -24,8 +25,12 @@ def call(asked, tool, args=None, session="s1"):
     return gate.call(session, gate.token(session), tool, args or {})
 
 
-def test_there_are_exactly_five_tools_and_each_is_a_registered_command(asked):
-    assert [t.name for t in TOOLS] == ["make_page", "read_state", "read_measurement", "change_live", "propose_live"]
+def test_there_are_exactly_seven_tools_and_each_is_a_registered_command(asked):
+    assert [t.name for t in TOOLS] == [
+        "make_page", "read_state", "read_measurement", "bounce_audio", "measure_audio", "change_live", "propose_live",
+    ]  # fmt: skip
+    assert {t.name: t.kind for t in TOOLS}["bounce_audio"] == "render.bounce"
+    assert {t.name: t.kind for t in TOOLS}["measure_audio"] == "render.measure"
     assert {t.name: t.kind for t in TOOLS}["change_live"] == "live.change"
     assert {t.name: t.kind for t in TOOLS}["propose_live"] == "live.propose"
     assert {t.kind for t in TOOLS} <= set(asked.rig.desk.bus.kinds())
