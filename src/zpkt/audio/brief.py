@@ -75,15 +75,27 @@ def read(path: str | Path, start_s: float = 0.0, end_s: float | None = None) -> 
     return np.nan_to_num(x), sr
 
 
+def seconds(path: str | Path) -> float:
+    """How long the file is."""
+    try:
+        return float(sf.info(str(path)).duration)
+    except (RuntimeError, OSError) as exc:
+        raise BriefError(f"{Path(path).name}: not an audio file that can be read ({str(exc)[:80]})") from exc
+
+
 def _powers(x: np.ndarray, sr: int) -> tuple[np.ndarray, np.ndarray]:
-    """(frequencies, power in each): the mean over the channels, in parts that add up to the mean square."""
-    n = len(x)
-    pad = (-n) % NFFT
-    padded = np.pad(x, ((0, pad), (0, 0))) if pad else x
-    chunks = padded.T.reshape(x.shape[1], -1, NFFT)
-    spec = np.abs(np.fft.rfft(chunks, axis=2)) ** 2
-    spec[:, :, 1:-1] *= 2.0  # one side stands for both
-    power = spec.sum(axis=1).mean(axis=0) / (NFFT * n)
+    """(frequencies, power in each): the mean over the channels, in parts that add up to the mean square. Hann
+    windows that overlap by half, so a strong tone does not leak into bands far from it."""
+    n, hop = len(x), NFFT // 2
+    padded = np.pad(x, ((hop, hop + (-n) % hop), (0, 0)))  # every sample is under two windows, the ends too
+    window = np.hanning(NFFT + 1)[:-1]
+    frames = np.lib.stride_tricks.sliding_window_view(padded, NFFT, axis=0)[::hop]  # (frames, channels, NFFT)
+    power = np.zeros(NFFT // 2 + 1)
+    for i in range(0, len(frames), 128):  # in parts: a long file is not held as one block of spectra
+        power += (np.abs(np.fft.rfft(frames[i : i + 128] * window, axis=2)) ** 2).sum(axis=(0, 1))
+    total = float(power.sum())
+    if total > 0.0:
+        power *= float(np.mean(x**2)) / total
     return np.fft.rfftfreq(NFFT, 1.0 / sr), power
 
 
@@ -187,4 +199,15 @@ def difference(a: Any, b: Any) -> Any:
     return None
 
 
-__all__ = ["BANDS", "MAX_STEPS", "THIRD_OCTAVES", "BriefError", "brief", "difference", "over_time", "read", "spectrum"]
+__all__ = [
+    "BANDS",
+    "MAX_STEPS",
+    "THIRD_OCTAVES",
+    "BriefError",
+    "brief",
+    "difference",
+    "over_time",
+    "read",
+    "seconds",
+    "spectrum",
+]

@@ -37,10 +37,12 @@ export function toolLine(name, params = {}) {
     case 'fetch': return `fetched ${first(p.url || p.prompt, 50)}`;
     default: {
       // The app's own tools, in the person's words rather than by their ids (propose_option: only in older chats).
-      const app = String(name || '').match(/(?:^|[^a-z])(make_page|read_state|read_measurement|change_live|propose_live|propose_option)(?![a-z_])/i)?.[1].toLowerCase();
+      const app = String(name || '').match(/(?:^|[^a-z])(make_page|read_state|read_measurement|bounce_audio|measure_audio|change_live|propose_live|propose_option)(?![a-z_])/i)?.[1].toLowerCase();
       if (app === 'make_page') { const t = p.spec?.title || p.page?.title || p.title; return `${p.spec?.id ? 'changed' : 'made'} a surface${typeof t === 'string' && t ? ': ' + first(t, 50) : ''}`; }
       if (app === 'read_state') return 'looked at the desk';
       if (app === 'read_measurement') return 'read the last measurement';
+      if (app === 'bounce_audio') { const w = [p.what ?? 'the mix'].flat().filter((x) => typeof x === 'string').map((x) => (/^(mix|main|master)$/i.test(x) ? 'the mix' : x)).join(', '); return `bounced ${first(w, 44)}${Array.isArray(p.bars) ? `, bars ${p.bars[0]} to ${p.bars[1]}` : typeof p.bars === 'string' ? `, the ${p.bars}` : ''}`; }
+      if (app === 'measure_audio') return typeof p.file === 'string' && p.file ? `measured ${first(base(p.file), 44)}${typeof p.against === 'string' && p.against ? ' against ' + first(base(p.against), 24) : ''}` : 'looked at the bounces';
       if (app === 'change_live') return `changed Live${typeof p.why === 'string' && p.why ? ': ' + first(p.why, 50) : ''}`;
       const ability = String(name || '').match(/(?:^|[^a-z])ability_([a-z][a-z0-9_]*)/)?.[1];   // code the person allowed for good, run again
       if (ability) return `ran ${ability}(${first(Object.entries(p).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(', '), 40)})`;

@@ -1,19 +1,20 @@
 """The tools as an MCP server on stdio: `python -m zpkt.app.ask.mcp`.
 
-Claude Code and Gemini CLI start it for a session. It lists the five tools of tools.py and sends each call to the app
+Claude Code and Gemini CLI start it for a session. It lists the seven tools of tools.py and sends each call to the app
 (`POST /app/ask/api/tool`) with the session's id and token, which come in the environment: ZPKT_DESK_URL,
 ZPKT_APP_SESSION, ZPKT_APP_TOKEN. It holds no Live connection and imports nothing from zpkt.live: it is a client of
 the app, like any other.
 
-The tool list is the app's own (`GET /app/ask/api/tools`): the five built in, then one tool for each ability the
+The tool list is the app's own (`GET /app/ask/api/tools`): the seven built in, then one tool for each ability the
 person allowed with "Always" (tools.py). It is asked for afresh at every `tools/list`. The server says it can tell
 when the list changes (`listChanged`), and does: after every call, and every WATCH_S seconds while it waits, it
 compares the app's list with the one it last gave and sends `notifications/tools/list_changed` when they differ, so
 an ability kept in one turn is a tool in the same turn where the client listens, and at the latest in the next
-(a new server lists afresh). If the app cannot be reached, the five built-in tools are listed.
+(a new server lists afresh). If the app cannot be reached, the seven built-in tools are listed.
 
 A call waits TIMEOUT_S for the app. A tool that waits for the person's tap (`propose_live`) is given that tool's own
-wait on top (tools.Tool.wait_s), so the app's "nobody answered" always comes back before this side gives up.
+wait on top (tools.Tool.wait_s), so the app's "nobody answered" always comes back before this side gives up. A tool
+whose own work is long (`bounce_audio`: an export in Live) is given that time on top too (tools.Tool.takes_s).
 """
 
 from __future__ import annotations
@@ -31,11 +32,12 @@ from zpkt.app.ask.tools import TOOLS
 
 PROTOCOL = "2024-11-05"
 TIMEOUT_S = 60
-WAITS = {t.name: t.wait_s for t in TOOLS}  # the tools that wait for a person, and for how long
+WAITS = {t.name: t.wait_s + t.takes_s for t in TOOLS}  # the tools that wait for a person or for Live, and how long
 
 
 def timeout_for(tool: Any) -> float:
-    """How long a call of `tool` may take over HTTP: the app's own time, plus the time a person has to answer."""
+    """How long a call of `tool` may take over HTTP: the app's own time, plus the time a person has to answer or
+    a long job in Live may take."""
     return TIMEOUT_S + WAITS.get(str(tool), 0.0)
 
 
@@ -67,7 +69,7 @@ def http_post(url: str) -> Post:
 
 
 def tool_list() -> list[dict[str, Any]]:
-    """The five built-in tools: what is listed when the app cannot say."""
+    """The seven built-in tools: what is listed when the app cannot say."""
     return [{"name": t.name, "description": t.description, "inputSchema": t.schema} for t in TOOLS]
 
 
@@ -162,7 +164,7 @@ def serve(
     tools: Lister = tool_list,
     watch_s: float = 0.0,
 ) -> None:
-    """Answer the client until stdin ends. `tools` lists the tools (default: the built-in five); with `watch_s`
+    """Answer the client until stdin ends. `tools` lists the tools (default: the built-in seven); with `watch_s`
     the list is also checked on a timer, for a server that lives on between turns."""
     watch = Watch(stdout, tools)
     stop = threading.Event()

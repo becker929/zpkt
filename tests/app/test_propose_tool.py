@@ -226,7 +226,10 @@ def test_the_tool_servers_http_timeout_is_longer_than_the_wait():
     assert wait == tools.PROPOSE_WAIT_S == 240.0
     assert mcp.timeout_for("propose_live") == wait + mcp.TIMEOUT_S > wait
     assert mcp.timeout_for("propose_live") < 600  # Gemini CLI gives an MCP call ten minutes
-    assert all(mcp.timeout_for(t.name) == mcp.TIMEOUT_S for t in tools.TOOLS if t.name != "propose_live")
+    # a bounce is an export in Live: its own time on top, and still under the ten minutes
+    assert mcp.timeout_for("bounce_audio") == tools.BOUNCE_TAKES_S + mcp.TIMEOUT_S < 600
+    slow = ("propose_live", "bounce_audio")
+    assert all(mcp.timeout_for(t.name) == mcp.TIMEOUT_S for t in tools.TOOLS if t.name not in slow)
     assert mcp.timeout_for(None) == mcp.TIMEOUT_S
 
 

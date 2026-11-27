@@ -45,6 +45,12 @@ different questions.
 | Premaster faults, word length, dither, DC | `ears premaster`, `ears bitdepth` | Planted-fault and analytic checks. |
 | What a render is like, and how close to my corpus | `ears analyze`, `ears corpus distance` | A profile, not a meter: pyloudnorm loudness, 4x true peak, five coarse band shares, librosa spectra and an embedding. Good for ranking renders, not for mastering decisions. |
 
+For an agent that must not load audio into its conversation, [`brief.py`](brief.py) gives a short sheet of a
+window of a file: `brief(path, start_s, end_s)` (LUFS, true peak, peak, RMS, crest, five bands as parts of the RMS:
+sub under 60 Hz, low to 250, mid to 2000, high to 6000, air above; stereo correlation and width),
+`spectrum` (third octaves), `over_time(path, step_s)` (RMS and peak per step) and `difference(a, b)`. It is a
+quick reading, not one of the calibrated meters: the app's `render.bounce` and `render.measure` answer with it.
+
 `uv run ears calibrate` runs every known-answer check and writes
 [`ears/mlab/calibration/CALIBRATION.md`](../../../ears/mlab/calibration/CALIBRATION.md).
 
