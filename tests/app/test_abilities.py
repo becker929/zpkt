@@ -140,6 +140,27 @@ def test_replacing_an_ability_takes_a_new_always_and_the_card_says_what_it_repla
     assert code == 200 and reply["result"] == {"doubled_to": 81.0} and rig.live.song.tempo == 81.0
 
 
+def test_a_replacement_may_not_break_what_uses_the_ability(rig):
+    keep(rig, SET_TEMPO)
+    keep(rig, {**DOUBLE, "code": "result = use('set_tempo', {'bpm': 100})", "params": {}, "args": {}})
+    renamed = {
+        "code": "song.tempo = args['tempo']",
+        "does": "Sets the tempo.",
+        "name": "set_tempo",
+        "params": {"tempo": {"type": "number", "description": "the tempo, in BPM"}},
+        "args": {"tempo": 91},
+    }
+    code, reply = check(rig, batch(renamed))
+    assert (
+        code == 400
+        and 'would break "double_tempo"' in reply["problems"][0]
+        and "args lacks tempo" in reply["problems"][0]
+    )
+    wider = {**SET_TEMPO, "code": "song.tempo = args['bpm'] * args['times']"}
+    wider["params"] = {**BPM, "times": {"type": "integer", "description": "times the number", "default": 1}}
+    assert check(rig, batch(wider))[0] == 200  # a new parameter with a default breaks nobody
+
+
 def test_at_most_fifty_abilities(rig):
     store = rig.desk.abilities
     for k in range(abilities.MAX):

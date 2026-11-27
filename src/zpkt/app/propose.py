@@ -55,6 +55,7 @@ once and is the person's only. A `use` step of a batch (`live.change` too) runs 
 from __future__ import annotations
 
 import ast
+import json
 from typing import TYPE_CHECKING, Any
 
 from zpkt.app import abilities, change, coderun, effects, jobs
@@ -179,12 +180,36 @@ def name_code(steps: list[Step], have: list[str]) -> list[str]:
     return problems
 
 
+def breaks(steps: list[Step], library: dict[str, dict[str, Any]]) -> list[str]:
+    """A code step that would replace an ability (the same name) must still fit the abilities that use it: where
+    one of them calls it with its arguments written out, they are checked against the new parameters."""
+    problems = []
+    for s in steps:
+        if s.op != "code" or s.name not in library:
+            continue
+        for other, a in library.items():
+            try:
+                found = abilities.calls(ast.parse(a["code"]))
+            except SyntaxError:
+                continue
+            for name, written in found if isinstance(found, list) else []:
+                if name == s.name and written is not None and (why := abilities.args_problem(s.params, written)):
+                    problems.append(
+                        f'step {s.n} ({s.words}): as a replacement of "{s.name}" it would break "{other}", which '
+                        f"uses it with {json.dumps(written)}: {why}. Keep those parameters (add new ones with a "
+                        "default), or propose it under another name"
+                    )
+    return problems
+
+
 def checked(desk: Desk, args: Any) -> tuple[str, list[Step], dict[str, Description], list[str]]:
     """The batch read and checked whole: (why, steps, the descriptions of the values to be set, every problem)."""
     why, steps, problems = read(args)
     found: dict[str, Description] = {}
     if steps:
-        problems += name_code(steps, desk.abilities.names())
+        library = desk.abilities.library() if any(s.op == "code" for s in steps) else {}
+        problems += name_code(steps, list(library))
+        problems += breaks(steps, library)
         more, found = change.check(desk, steps)
         problems += more
     return why, steps, found, problems

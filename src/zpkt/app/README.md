@@ -212,7 +212,8 @@ with clean parameters ... allow the agent to chain tools together so we build ab
   character of an argument is ever formatted into the code's text (`abilities.program`).
 - **Replacing.** A code step named like an ability is a new version of it. Its card says "Replaces <name>" and how
   many abilities use it. "Do it" runs the new code once and leaves the kept one alone; only "Always" on that card
-  replaces it, and from then on everything that uses it runs the new code.
+  replaces it, and from then on everything that uses it runs the new code. A replacement whose parameters no
+  longer fit a written-out call in an ability that uses it is refused before anybody is asked.
 - **Chaining.** In an ability's code, and in a proposal's, `use("other_ability", {...})` runs another ability and
   returns its `result`. The name must be written out, so the app can read what a piece of code uses (`ast`). It
   sends exactly those abilities along in the same one call (their code and parameters as part of the JSON
