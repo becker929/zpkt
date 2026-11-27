@@ -377,6 +377,218 @@
       "title": "PositionMessage",
       "type": "object"
     },
+    "StepKnobMessage": {
+      "description": "Knob 1, 2 or 3 turned in the steps layer: the velocity, the length (in steps) or the swing of a new step.",
+      "properties": {
+        "t": {
+          "const": "step_knob",
+          "title": "T",
+          "type": "string"
+        },
+        "what": {
+          "enum": [
+            "velocity",
+            "length",
+            "swing"
+          ],
+          "title": "What",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "t",
+        "what",
+        "value"
+      ],
+      "title": "StepKnobMessage",
+      "type": "object"
+    },
+    "StepPadMessage": {
+      "description": "A pad pressed in the steps layer: step pad 0-15 of the bar in view (bank A is 0-7, bank B is 8-15).",
+      "properties": {
+        "t": {
+          "const": "step",
+          "title": "T",
+          "type": "string"
+        },
+        "pad": {
+          "title": "Pad",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "t",
+        "pad"
+      ],
+      "title": "StepPadMessage",
+      "type": "object"
+    },
+    "StepSoundMessage": {
+      "description": "A sound chosen on the MiniLab in the steps layer: the data knob turned (`turn` sounds on, or back), or a pad\nof the track's Drum Rack selected in Live, as a played key does (`pitch`, the pad's note).",
+      "properties": {
+        "t": {
+          "const": "step_sound",
+          "title": "T",
+          "type": "string"
+        },
+        "turn": {
+          "title": "Turn",
+          "type": "integer"
+        },
+        "pitch": {
+          "title": "Pitch",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "t"
+      ],
+      "title": "StepSoundMessage",
+      "type": "object"
+    },
+    "StepsEdit": {
+      "description": "A pattern was changed through the app: which one, and by which command.",
+      "properties": {
+        "track": {
+          "title": "Track",
+          "type": "string"
+        },
+        "bar": {
+          "title": "Bar",
+          "type": "integer"
+        },
+        "bars": {
+          "title": "Bars",
+          "type": "integer"
+        },
+        "what": {
+          "title": "What",
+          "type": "string"
+        }
+      },
+      "required": [
+        "track",
+        "bar",
+        "bars",
+        "what"
+      ],
+      "title": "StepsEdit",
+      "type": "object"
+    },
+    "StepsFocus": {
+      "description": "What the step sequencer is editing (zpkt.app.steps_commands.focus): a pattern, a sound, its steps.",
+      "properties": {
+        "track": {
+          "title": "Track",
+          "type": "string"
+        },
+        "bar": {
+          "title": "Bar",
+          "type": "integer"
+        },
+        "bars": {
+          "title": "Bars",
+          "type": "integer"
+        },
+        "steps_per_bar": {
+          "title": "Steps Per Bar",
+          "type": "integer"
+        },
+        "view": {
+          "title": "View",
+          "type": "integer"
+        },
+        "pitch": {
+          "title": "Pitch",
+          "type": "integer"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "velocity": {
+          "title": "Velocity",
+          "type": "integer"
+        },
+        "length": {
+          "title": "Length",
+          "type": "number"
+        },
+        "swing": {
+          "title": "Swing",
+          "type": "number"
+        },
+        "steps": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Steps",
+          "type": "array"
+        },
+        "blocked": {
+          "title": "Blocked",
+          "type": "boolean"
+        },
+        "rev": {
+          "title": "Rev",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "track",
+        "bar",
+        "bars",
+        "steps_per_bar",
+        "view",
+        "pitch",
+        "name",
+        "velocity",
+        "length",
+        "swing",
+        "steps",
+        "blocked",
+        "rev"
+      ],
+      "title": "StepsFocus",
+      "type": "object"
+    },
+    "StepsMessage": {
+      "description": "The step sequencer's focus, sent whole whenever it changes (None: nothing is being edited), and after every\nchange to a pattern (`edit`). A controller lights its pads from focus.steps and turns a pad press into\nsteps.toggle with the focus and a step number.",
+      "properties": {
+        "t": {
+          "const": "steps",
+          "title": "T",
+          "type": "string"
+        },
+        "focus": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StepsFocus"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "src": {
+          "title": "Src",
+          "type": "string"
+        },
+        "edit": {
+          "$ref": "#/$defs/StepsEdit"
+        }
+      },
+      "required": [
+        "t",
+        "focus"
+      ],
+      "title": "StepsMessage",
+      "type": "object"
+    },
     "SurfaceMessage": {
       "description": "How the \"Make a surface\" job is going.",
       "properties": {
@@ -520,6 +732,15 @@
       "$ref": "#/$defs/ArrangementMessage"
     },
     {
+      "$ref": "#/$defs/StepPadMessage"
+    },
+    {
+      "$ref": "#/$defs/StepKnobMessage"
+    },
+    {
+      "$ref": "#/$defs/StepSoundMessage"
+    },
+    {
       "$ref": "#/$defs/FullMessage"
     },
     {
@@ -533,6 +754,9 @@
     },
     {
       "$ref": "#/$defs/DeskMessage"
+    },
+    {
+      "$ref": "#/$defs/StepsMessage"
     }
   ]
 }

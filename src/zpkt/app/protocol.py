@@ -102,6 +102,37 @@ class ArrangementMessage(TypedDict):
     t: Literal["arr"]
 
 
+# The MiniLab while its pads are the step sequencer's steps (the pager's steps layer; zpkt.app.steps_minilab turns
+# these three into steps.toggle and steps.focus, as the minilab).
+
+
+class StepPadMessage(TypedDict):
+    """A pad pressed in the steps layer: step pad 0-15 of the bar in view (bank A is 0-7, bank B is 8-15)."""
+
+    t: Literal["step"]
+    pad: int
+
+
+STEP_KNOBS = ("velocity", "length", "swing")
+
+
+class StepKnobMessage(TypedDict):
+    """Knob 1, 2 or 3 turned in the steps layer: the velocity, the length (in steps) or the swing of a new step."""
+
+    t: Literal["step_knob"]
+    what: Literal["velocity", "length", "swing"]
+    value: float
+
+
+class StepSoundMessage(TypedDict):
+    """A sound chosen on the MiniLab in the steps layer: the data knob turned (`turn` sounds on, or back), or a pad
+    of the track's Drum Rack selected in Live, as a played key does (`pitch`, the pad's note)."""
+
+    t: Literal["step_sound"]
+    turn: NotRequired[int]
+    pitch: NotRequired[int]
+
+
 PagerMessage = (
     ValueMessage
     | PositionMessage
@@ -112,6 +143,9 @@ PagerMessage = (
     | PadMessage
     | FlagsMessage
     | ArrangementMessage
+    | StepPadMessage
+    | StepKnobMessage
+    | StepSoundMessage
 )
 
 
@@ -231,6 +265,9 @@ _KINDS: dict[str, tuple[type, dict[str, tuple[type, ...]]]] = {
     "pad": (PadMessage, {"page": (int,), "slot": (str,)}),
     "flags": (FlagsMessage, {"solo": (list,), "mute": (list,), "sys": (bool,)}),
     "arr": (ArrangementMessage, {}),
+    "step": (StepPadMessage, {"pad": (int,)}),
+    "step_knob": (StepKnobMessage, {"what": (str,), "value": _NUMBER}),
+    "step_sound": (StepSoundMessage, {"turn": (int,), "pitch": (int,)}),
 }
 PAGER_KINDS = tuple(_KINDS)
 
@@ -256,6 +293,8 @@ def parse_message(obj: Any) -> PagerMessage:
             raise BadMessage(f"{kind!r} field {name!r} is {type(value).__name__}")
     if kind == "v" and "who" in obj and obj["who"] not in WHO:
         raise BadMessage(f"'v' field 'who' is {obj['who']!r}; it is one of {', '.join(WHO)}")
+    if kind == "step_knob" and obj["what"] not in STEP_KNOBS:
+        raise BadMessage(f"'step_knob' field 'what' is {obj['what']!r}; it is one of {', '.join(STEP_KNOBS)}")
     return obj  # type: ignore[return-value]  # checked field by field above
 
 

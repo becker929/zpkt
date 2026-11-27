@@ -214,6 +214,12 @@ def heard(q, kind="steps"):
     return [m for m in list(q.queue) if m.get("t") == kind]
 
 
+def asked(rig):
+    """How many times Live was asked, the MiniLab's lights aside: the pager is told the focus's steps on a thread
+    of its own (zpkt.app.steps_minilab), whenever that suits it."""
+    return len([c for c in rig.live.calls if "m.DESK.steps_layer" not in c.code])
+
+
 def test_the_focus_holds_the_chosen_sounds_steps_and_reaches_every_page(drums):
     rig = drums
     span = {"track": "Drums", "bar": 5, "bars": 1}
@@ -255,16 +261,16 @@ def test_the_focus_holds_the_chosen_sounds_steps_and_reaches_every_page(drums):
 
     # a part is enough once there is a focus: another sound is read from Live, a knob's value is not
     ask(rig, "steps.toggle", {**span, "pitch": HAT, "step": 2, "velocity": 64})
-    calls = len(rig.live.calls)
+    calls = asked(rig)
     hat = ask(rig, "steps.focus", {"pitch": HAT, "src": "page-1"})[1]["focus"]
     assert (hat["name"], hat["steps"][2], hat["velocity"], hat["bar"]) == ("Hat", 64, 110, 5)
-    assert len(rig.live.calls) == calls + 1 and heard(shell)[-1]["src"] == "page-1"
-    calls = len(rig.live.calls)
+    assert asked(rig) == calls + 1 and heard(shell)[-1]["src"] == "page-1"
+    calls = asked(rig)
     softer = ask(rig, "steps.focus", {"velocity": 70})[1]["focus"]
-    assert softer["velocity"] == 70 and softer["steps"] == hat["steps"] and len(rig.live.calls) == calls
+    assert softer["velocity"] == 70 and softer["steps"] == hat["steps"] and asked(rig) == calls
     # a page that has just read the pattern hands the steps over, and Live is not asked
     given = ask(rig, "steps.focus", {**span, "bar": 6, "pitch": KICK, "steps": [0] * 16, "blocked": False})[1]["focus"]
-    assert given["bar"] == 6 and given["steps"] == [0] * 16 and len(rig.live.calls) == calls
+    assert given["bar"] == 6 and given["steps"] == [0] * 16 and asked(rig) == calls
 
     # {} lets it go
     code, got = ask(rig, "steps.focus", {})

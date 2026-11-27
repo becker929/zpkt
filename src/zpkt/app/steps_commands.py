@@ -204,6 +204,7 @@ def say(desk: Desk, edit: dict[str, Any] | None = None, src: str | None = None) 
     if edit:
         message["edit"] = edit
     desk.push(message)
+    desk.steps_hand.show()  # the MiniLab's pads: the pager is told (not in this thread) if what it shows changed
     return focus
 
 
