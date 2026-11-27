@@ -405,6 +405,19 @@ def test_a_stopped_turn_keeps_its_tool_calls_in_view(asked, page, browser):
     assert page.errors == [] and other.errors == [], (page.errors, other.errors)
 
 
+@pytest.mark.parametrize("width", [375, 1100])
+def test_the_text_box_has_the_whole_row_and_its_keys_are_under_it(asked, browser, width):
+    """Anthony, 27 November 2026: the keys beside the input box "are squeezing the input box horizontally"."""
+    pg = open_page(browser, asked, width=width, height=700)
+    pg.wait_for_selector("#in")
+    bar, field, send_key, tools = box(pg, "#bar"), box(pg, "#in"), box(pg, "#send"), box(pg, "#tools")
+    assert field["width"] >= min(bar["width"], 780) - 60  # only the send key shares its row
+    assert abs(send_key["y"] - field["y"]) <= 3 and send_key["x"] >= field["x"] + field["width"] - 1
+    assert tools["y"] >= field["y"] + field["height"] - 1  # the agent and the attach keys: a row below
+    assert pg.locator("#engine").is_visible() and box(pg, "#engine")["y"] >= tools["y"] - 1
+    assert pg.evaluate("document.documentElement.scrollWidth <= innerWidth") and pg.errors == []
+
+
 # ---- quiet status: counts and recovered errors are in the work view, a failure is one sentence ----------------------
 def test_a_recovered_error_and_the_tool_counts_stay_out_of_the_default_view(asked, page):
     asked.providers["claude"].script = [

@@ -316,7 +316,7 @@ def test_a_checkpoint_is_named_saved_at_once_and_can_be_gone_back_to(browser, ri
     pg.wait_for_selector('#hrows .he.cp[data-cp="before the lead"]')
     assert pg.locator("#cpsaving").count() == 0 and pg.input_value("#cpname") == ""
     back = pg.locator('#hrows button[data-back="before the lead"]')
-    assert back.inner_text().strip() == "Go back" and back.bounding_box()["height"] >= 44
+    assert back.inner_text().strip() == "Go back" and back.bounding_box()["height"] >= 30  # a low row for a mouse
     drag(pg, VOL, 50)
     settled(pg, VOL)
     moved = shown(pg, VOL)
@@ -389,6 +389,19 @@ def test_the_spectrum_is_off_the_page_and_the_level_reads_listens_peak(browser, 
 # ---- findings 8, 9 and 10 --------------------------------------------------------------------------------------------
 
 
+def test_a_surface_chosen_in_the_left_bar_brings_up_the_desk(browser, rig):
+    """Anthony, 27 November 2026: "when I click a surface in the left bar it needs to take me to the desk tab"."""
+    pg = open_lead(browser, rig)
+    for tab in ("song", "monitor"):
+        pg.click(f"#tab-{tab}")
+        pg.wait_for_function(f"window.zpkt.S.tab === '{tab}'")
+        assert not pg.locator("#desk").is_visible()
+        pg.locator("#side .pl .key").last.click()  # the surface that is open already counts too
+        pg.wait_for_function("window.zpkt.S.tab === 'desk'")
+        assert pg.locator("#desk").is_visible() and pg.locator("#tabs .on").get_attribute("data-t") == "desk"
+        assert pg.evaluate("location.hash") == "#desk"
+
+
 def test_a_new_pages_button_is_in_view_in_the_page_list(browser, rig):
     pg = open_lead(browser, rig)  # the made page is the last of the list, in a window 800 px high
     on = pg.locator("#side .pl .key.on")
@@ -404,7 +417,7 @@ def test_a_new_pages_button_is_in_view_in_the_page_list(browser, rig):
     first = pg.locator("#side .pl .key.on").bounding_box()
     assert first["y"] >= side["y"] and first["y"] + first["height"] <= side["y"] + side["height"]
     steps = pg.locator("#side .pgs button")
-    assert steps.nth(0).is_disabled() and not steps.nth(1).is_disabled() and steps.nth(1).bounding_box()["height"] >= 44
+    assert steps.nth(0).is_disabled() and not steps.nth(1).is_disabled() and steps.nth(1).bounding_box()["height"] >= 30
 
 
 def test_no_minilab_is_not_an_error(browser, rig):

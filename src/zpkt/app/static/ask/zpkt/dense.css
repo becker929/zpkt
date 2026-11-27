@@ -1,6 +1,6 @@
 /* Ask, dense (Anthony, 26 November 2026: "Ask's style needs to be more info dense"; of five renders on his own chat
-   he chose "3 Extreme"). 12 px text edge to edge, no air between blocks, your message as one bold line, the composer
-   as one row. About twice the chat fits a phone. It loads last and only makes things smaller: every rule here
+   he chose "3 Extreme"). 12 px text edge to edge, no air between blocks, your message as one bold line, the text box
+   a full row with its keys in a low row under it. About twice the chat fits a phone. It loads last and only makes things smaller: every rule here
    answers one in index.html, zpkt.css or work.css. The keys that decide something (Do it, Don't, Always, Stop, the
    send key) keep a size a thumb hits; the rows that only unfold detail are low. */
 body{font-size:12px;line-height:1.3}
@@ -41,16 +41,18 @@ details.tool{margin:0 0 3px;font-size:11px;border-radius:5px}details.tool summar
 .prop-code{font-size:10px;padding:3px;max-height:66px;margin-top:1px;border-radius:4px}
 a.pcard{padding:2px 6px 2px 4px;margin:2px 0;border-width:1px;min-height:0;gap:6px}.pthumb svg{width:56px;height:26px}
 
-/* the composer: the agent, the attach keys and the text box in one row */
+/* the composer: the text box has the whole width (Anthony, 27 November 2026: the keys beside it "are squeezing the
+   input box horizontally"); the agent and the attach keys are a low row under it */
 #bar{padding:3px 6px}
-#bar .wrap{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+#bar .wrap{display:flex;flex-wrap:wrap;align-items:center;gap:3px 4px}
 #bar #dock,#bar #chips,#bar #hint{flex:0 0 100%}
-#bar #tools{flex:none;order:1;gap:0;width:auto}
+#bar #box{flex:0 0 100%;order:1;min-width:0;margin:0;min-height:34px;padding:1px;box-sizing:border-box}
+#bar #tools{flex:0 0 100%;order:2;gap:2px;width:auto;justify-content:flex-start}
 #bar #tools .sp{display:none}
-#bar #box{flex:1 1 120px;order:2;min-width:0;margin:0;min-height:34px;padding:1px}
-#tools,#tools select,#tools button{height:32px;min-height:32px}
-#engine{width:54px;font-size:11px;padding-left:4px;padding-right:0}
-#ztools button,#moreBtn{width:28px}
+#bar #hint{order:3}
+#tools,#tools select,#tools button{height:30px;min-height:30px}
+#engine{width:auto;max-width:130px;font-size:11px;padding-left:6px}
+#ztools button,#moreBtn{width:36px}
 /* the text box keeps 16 px type: a phone zooms the whole page into any field with smaller type, and the cursor
    jumps while it does. The row is no taller for it. */
 #in{min-height:30px;height:30px;padding:5px 6px;font-size:16px;line-height:20px}
