@@ -9,6 +9,10 @@
     steps.paint(live, "Drums", 1, 2, [3, 5, 7])      # stamp the clip of bars 1-2 onto bars 3, 5 and 7
     steps.erase(live, "Drums", [5], 2)               # delete the clip that covers bars 5-6 exactly
     steps.painted(live, "Drums", 2, 64)              # which bars start a 2-bar clip, with a hash of its notes
+    steps.restore(live, "Drums", 5, 2, notes)        # the span holds exactly these notes again (None: no clip); "was"
+    steps.loop(live, 17, 2)                          # loop bars 17-18; what the loop was (steps.loop_put puts it back)
+    steps.kits(live)                                 # the Drum Rack presets Live's browser offers, by name
+    steps.new_drum_track(live, "Drums", "909 Core Kit")   # a MIDI track before the monitor tracks, with that kit
 
 The grid (pure Python, no Live): a pattern is {"bars": 1|2|4, "steps_per_bar": 8|12|16|24|32, "rows": [{"pitch",
 "name", "steps": [0 or a velocity 1..127 per step]}], "length": a note's length in steps, "swing": 0..0.75}.
@@ -27,6 +31,8 @@ names those clips. A clip is never cut, shortened or moved here.
 
 For an undo in the app, `write`, `toggle` and `set_step` return `before`, the notes the span held (as `to_notes`
 gives them); `paint` returns the clips it replaced and `erase` the clips it deleted, each with its name and notes.
+`restore` puts a span back from those: its notes into one exact clip, or no clip at all, and returns what the span
+held, so the same call takes itself back.
 
 Arrangement view only: nothing here makes, launches or reads a Session clip or a scene.
 """
@@ -34,10 +40,12 @@ Arrangement view only: nothing here makes, launches or reads a Session clip or a
 from __future__ import annotations
 
 import json
+import time
 from collections import Counter
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import Any, NotRequired, TypedDict
 
+from zpkt.live.agent import with_prelude
 from zpkt.live.inlive import steps as inside
 from zpkt.live.inlive import with_source
 from zpkt.live.transport import McpTransport
@@ -58,6 +66,10 @@ PER_CALL = 16  # copies one call to Live makes: each call stays short (ableton-g
 # second. GUESS: it is long enough (zpkt.live.arrange.fx copies back to back with none).
 COPY_PAUSE_S = 0.03
 MAX_PAINTED = 256  # clips `painted` reports at most
+MAX_KITS = 60  # kits `kits` gives at most
+MONITOR_PREFIX = "mon "  # the mix desk's monitor tracks: a new drum track goes in front of the first of them
+SETTLE_S = 0.3  # after a track is made or a kit loaded, before the set is read again (ableton-guide rule 3)
+POLLS = 12  # times the set is read after that, SETTLE_S apart, before the step counts as failed
 
 Note = tuple[int, float, float, int]  # pitch, start in beats from the pattern's start, duration in beats, velocity
 
@@ -704,3 +716,151 @@ def painted(live: McpTransport, track: TrackRef, bars: int, total_bars: int) -> 
         cap=MAX_PAINTED,
     )
     return [{"bar": int(c["bar"]), "hash": str(c["hash"]), "name": str(c["name"])} for c in found]
+
+
+# --------------------------------------------------------------------------- Live: a span put back, the loop
+
+
+class Held(TypedDict):
+    """What a span held: its exact clip's name and notes (beats from the span's start)."""
+
+    name: str
+    notes: list[Note]
+
+
+class Restored(TypedDict):
+    """`was` is what the span held before the call: None when it was free."""
+
+    was: Held | None
+
+
+def restore(
+    live: McpTransport,
+    track: TrackRef,
+    bar: int,
+    bars: int,
+    notes: Iterable[Sequence[float]] | None,
+    name: str | None = None,
+) -> Restored | Blocked:
+    """Make the span of `bars` bars from `bar` hold exactly `notes` ((pitch, beats from the span's start, duration
+    in beats, velocity), as `before`, `replaced` and `erased` give them) in one MIDI clip that covers exactly it:
+    the clip there gets them, a free span gets a new clip (named `name` if given). With `notes` None the span is
+    left with no clip: the one that covers exactly it is deleted. The answer's `was` is what the span held before
+    (None: it was free), so calling `restore` again with it takes this call back: the app's undo and redo. Clips
+    of another length in the way give {"error", "blocked"} and nothing is changed. One call."""
+    did = _run(
+        live,
+        track,
+        f"span_put(song, _t, {_NOTE_SPEC}, **_a)",
+        bar=check_bar(bar),
+        bars=_span_bars(bars),
+        notes=None if notes is None else [[int(p), float(s), float(d), int(v)] for p, s, d, v in notes],
+        name=name,
+    )
+    if "error" in did:
+        return {"error": str(did["error"]), "blocked": list(did["blocked"])}
+    was = did["was"]
+    return {"was": None if was is None else {"name": str(was["name"]), "notes": _as_notes(was["notes"])}}
+
+
+class Loop(TypedDict):
+    """The Arrangement's loop: whether it is on, where it starts and how long it is, in beats."""
+
+    on: bool
+    start: float
+    length: float
+
+
+def _song_run(live: McpTransport, call: str, prelude: bool = False, **args: Any) -> Any:
+    """One call to Live that is about no one track: `call`, an expression over the arguments `_a`, with
+    zpkt.live.inlive.steps above it (and zpkt.live.agent's prelude, for select_track)."""
+    code = f"import json\n_a = json.loads({json.dumps(args)!r})\nresult = json.dumps({call})"
+    return json.loads(live.run(with_source(with_prelude(code) if prelude else code, "steps")))
+
+
+def _as_loop(found: Mapping[str, Any]) -> Loop:
+    return {"on": bool(found["on"]), "start": float(found["start"]), "length": float(found["length"])}
+
+
+def loop(live: McpTransport, bar: int, bars: int) -> Loop:
+    """Loop `bars` bars from `bar` (counted from 1) in the Arrangement and switch the loop on, so a pattern is heard
+    going round with the song. A playhead outside the loop goes to its start; inside it, Live plays on. Returns
+    what the loop was, for `loop_put`. One call."""
+    return _as_loop(_song_run(live, "loop_bars(song, **_a)", bar=check_bar(bar), bars=_span_bars(bars)))
+
+
+def loop_put(live: McpTransport, was: Mapping[str, Any]) -> Loop:
+    """Put the loop back as `loop` found it ({"on", "start", "length"}); returns what it was just now. One call."""
+    start = _number(was.get("start"), "a loop's start in beats", 0.0, 1e7)
+    length = _number(was.get("length"), "a loop's length in beats", 0.25, 1e7)
+    return _as_loop(_song_run(live, "loop_put(song, **_a)", on=bool(was.get("on")), start=start, length=length))
+
+
+# --------------------------------------------------------------------------- Live: a new drum track
+
+
+class StepsError(RuntimeError):
+    """Live did not do the step. The message says what was asked and what was found."""
+
+
+class NewTrack(TypedDict):
+    name: str
+    index: int  # among the set's tracks
+    kit: str
+    device: str  # the name the kit's Drum Rack has on the track
+
+
+def kits(live: McpTransport, cap: int = MAX_KITS) -> list[str]:
+    """The Drum Rack presets Live's browser offers under Drums, by name (without ".adg"), in the browser's order,
+    at most `cap`. Names only; one call. GUESS (zpkt.live.inlive.steps.kit_items): which browser entries are kits."""
+    return [str(name) for name in _song_run(live, "kit_names(browser, **_a)", cap=_int(cap, "how many kits", 1, 500))]
+
+
+def _track_names(live: McpTransport) -> list[str]:
+    return [str(name) for name in live.run("result = [t.name for t in song.tracks]")]
+
+
+def new_drum_track(live: McpTransport, name: str, kit: str, pause: Callable[[float], None] = time.sleep) -> NewTrack:
+    """Make a MIDI track called `name` with the kit `kit` (a name `kits` gives) on it. It is put in front of the
+    first monitor track ("mon ...": the mix desk keeps those last), or last when the set has none.
+
+    Short calls, none of which reads back what it wrote (ableton-guide rules 1, 4 and 6): look (the tracks' names,
+    and whether the browser has the kit: nothing is made when it does not, or when a track has the name), make the
+    track, read the tracks until there is one more, name it by its index, load the kit onto it (select the track,
+    `browser.load_item`, as zpkt.live.chain loads an effect), read its devices until the kit is there. StepsError
+    says which of those Live did not do. Nothing here takes the track away again.
+
+    GUESS: `song.create_midi_track(i)` puts the new track at index i among the tracks; where it did land is read,
+    and a track that landed somewhere else is still named and filled. GUESS: a track made at an index that
+    follows a group's last track is outside the group."""
+    name, kit = str(name).strip(), str(kit).strip()
+    if not name or not kit:
+        raise ValueError("a new drum track needs a name and a kit")
+    look = _song_run(live, "new_track_look(song, browser, **_a)", kit=kit)
+    before = [str(n) for n in look["names"]]
+    if not look["kit"]:
+        raise ValueError(f"Live's browser has no kit {kit!r} under Drums")
+    if name in before:
+        raise ValueError(f"the set already has a track called {name!r}")
+    first_monitor = next((i for i, n in enumerate(before) if n.startswith(MONITOR_PREFIX)), None)
+    live.run(f"song.create_midi_track({-1 if first_monitor is None else first_monitor})\nresult = 'ok'")
+    after = before
+    for _ in range(POLLS):
+        pause(SETTLE_S)
+        after = _track_names(live)
+        if len(after) > len(before):
+            break
+    if len(after) != len(before) + 1:
+        raise StepsError(f"Live did not make the track (the set had {len(before)} tracks and has {len(after)})")
+    index = next((i for i, n in enumerate(before) if after[i] != n), len(before))  # where the new one landed
+    live.run(f"song.tracks[{index}].name = {name!r}\nresult = 'ok'")
+    had = int(
+        _song_run(live, "kit_load(song, browser, select_track, **_a)", prelude=True, index=index, name=name, kit=kit)
+    )
+    devices: list[str] = []
+    for _ in range(POLLS):
+        pause(SETTLE_S)
+        devices = [str(d) for d in live.run(f"result = [d.name for d in song.tracks[{index}].devices]")]
+        if len(devices) > had:
+            return {"name": name, "index": index, "kit": kit, "device": devices[0]}
+    raise StepsError(f"Live did not load the kit {kit!r} onto {name!r} (its devices: {devices})")

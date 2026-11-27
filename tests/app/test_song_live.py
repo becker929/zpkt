@@ -123,7 +123,9 @@ def test_the_song_tab_shows_lives_tracks_and_regions_under_the_ruler(browser, ri
     pg.wait_for_function("!document.querySelector('#songhead').hidden")
     head = pg.locator("#songhead").bounding_box()
     assert head["x"] + head["width"] / 2 == pytest.approx(ruler["x"] + ruler["width"] * 0.5, abs=2)
-    assert pg.locator("#song button:visible, #song select, #song input").count() == 0  # read only, no controls
+    # no controls on the lanes; with no MIDI track in the set, the one key that makes a drum track
+    assert pg.locator("#song button:visible").evaluate_all("els => els.map(e => e.dataset.st)") == ["pick"]
+    assert pg.locator("#song select, #song input").count() == 0
     add_clip(rig, -1, 8.0, 8.0, "new idea")  # a clip made in Live shows without a reload
     pg.wait_for_function("[...document.querySelectorAll('#lanes .rg')].some(e => e.textContent === 'new idea')")
     assert pg.locator("#lanes .lane").count() == len(drawn) + 1  # its track has a region now, so it has a lane

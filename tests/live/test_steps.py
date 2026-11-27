@@ -717,3 +717,74 @@ def test_the_page_can_tell_this_pattern_from_another_by_its_hash(live, no_pause)
     assert steps.read(live, "Drums", 3, 1)["hash"] != mine
     steps.toggle(live, "Drums", 3, 1, 16, SNARE, 4)
     assert steps.read(live, "Drums", 3, 1)["hash"] == mine
+
+
+# --------------------------------------------------------------------------- a span put back, the loop, a drum track
+
+
+def test_restore_puts_a_spans_notes_back_and_says_what_it_held_so_it_takes_itself_back(live):
+    steps.write(live, "Drums", 3, FOUR, name="beat")
+    four = steps.to_notes(FOUR)
+    calls = len(live.calls)
+    emptied = steps.restore(live, "Drums", 3, 1, [])
+    assert len(live.calls) == calls + 1
+    assert emptied == {"was": {"name": "beat", "notes": four}} and held(live, "Drums") == [(8.0, 12.0, "beat", [])]
+    gone = steps.restore(live, "Drums", 3, 1, None)  # no clip at all
+    assert gone == {"was": {"name": "beat", "notes": []}} and held(live, "Drums") == []
+    assert steps.restore(live, "Drums", 3, 1, None) == {"was": None}  # a free span stays free
+    back = steps.restore(live, "Drums", 3, 1, four, name="beat")  # a free span gets its clip again
+    assert back == {"was": None} and held(live, "Drums") == [(8.0, 12.0, "beat", sorted(four))]
+    assert steps.read(live, "Drums", 3, 1)["hash"] == steps.content_hash(four)
+    # a clip of another length in the way: nothing is changed
+    blocked = steps.restore(live, "Bass", 5, 1, [])
+    assert blocked["error"] == "clips are in the way" and blocked["blocked"][0]["name"] == "long"
+    assert held(live, "Bass")[0][3] == sorted(tuple(n) for n in LONG)
+    tidy(live)
+
+
+def test_the_loop_is_set_to_a_patterns_bars_and_put_back_as_it_was(live):
+    song = live.song
+    was = steps.loop(live, 3, 2)
+    assert was == {"on": False, "start": 0.0, "length": 16.0}
+    assert (song.loop, song.loop_start, song.loop_length) == (True, 8.0, 8.0)
+    assert song.current_song_time == 8.0  # the playhead was outside the loop: it goes to the loop's start
+    live.run("song.current_song_time = 10.0\nresult = 1")
+    assert steps.loop(live, 3, 1) == {"on": True, "start": 8.0, "length": 8.0}
+    assert song.current_song_time == 10.0  # beat 10 is inside bar 3: Live plays on undisturbed
+    assert steps.loop_put(live, was) == {"on": True, "start": 8.0, "length": 4.0}
+    assert (song.loop, song.loop_start, song.loop_length) == (False, 0.0, 16.0)
+    with pytest.raises(ValueError, match="a loop's length"):
+        steps.loop_put(live, {"on": True, "start": 0.0, "length": 0.0})
+    tidy(live)
+
+
+def test_the_kits_are_the_drum_rack_presets_of_lives_browser_by_name(live):
+    calls = len(live.calls)
+    assert steps.kits(live) == ["606 Core Kit", "707 Core Kit", "808 Core Kit", "909 Core Kit"]
+    assert steps.kits(live, cap=2) == ["606 Core Kit", "707 Core Kit"]
+    assert len(live.calls) == calls + 2
+
+
+def test_a_new_drum_track_goes_before_the_monitor_tracks_named_and_with_its_kit():
+    spec = {"tracks": [{"name": "Kick"}, {"name": "mon A"}, {"name": "mon B"}]}
+    with FakeLive(fake_set(spec)) as live:
+        pauses: list[float] = []
+        made = steps.new_drum_track(live, "Drums", "909 Core Kit", pause=pauses.append)
+        assert made == {"name": "Drums", "index": 1, "kit": "909 Core Kit", "device": "909 Core Kit"}
+        assert [t.name for t in live.song.tracks] == ["Kick", "Drums", "mon A", "mon B"]
+        assert steps.midi_tracks(live) == [{"name": "Drums", "index": 1, "color": "", "drum_rack": True}]
+        assert steps.sounds(live, "Drums")[:2] == [{"pitch": 36, "name": "Kick"}, {"pitch": 37, "name": "Rim"}]
+        assert pauses and all(p <= 0.5 for p in pauses)
+        tidy(live)
+        count = len(live.calls)
+        with pytest.raises(ValueError, match="no kit 'Nothing'"):
+            steps.new_drum_track(live, "Drums 2", "Nothing", pause=pauses.append)
+        with pytest.raises(ValueError, match="already has a track called 'Drums'"):
+            steps.new_drum_track(live, "Drums", "808 Core Kit", pause=pauses.append)
+        assert len(live.calls) == count + 2 and len(live.song.tracks) == 4  # one look each, and nothing made
+
+
+def test_a_set_without_monitor_tracks_gets_its_drum_track_last(live):
+    made = steps.new_drum_track(live, "Drums 2", "808 Core Kit.adg", pause=lambda s: None)
+    assert made["index"] == len(live.song.tracks) - 1 and live.song.tracks[-1].name == "Drums 2"
+    assert live.song.tracks[-1].devices[0].name == "808 Core Kit"

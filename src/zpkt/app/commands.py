@@ -14,7 +14,7 @@ import time
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from zpkt.app import change, effects, history, monitor, pages, surfaces
+from zpkt.app import change, effects, history, monitor, pages, steps_commands, surfaces
 from zpkt.app import deskstate as D
 from zpkt.app.bus import OK, BadRequest, Bus, Command, Reply
 from zpkt.live import describe, tempo
@@ -366,6 +366,8 @@ def _step(desk: Desk, cmd: Command, undo: bool) -> Reply:
     pairs, e = desk.history.undo(cmd.who) if undo else desk.history.redo(cmd.who)
     steps = (e or {}).get("devices") or []  # a batch's device steps (zpkt.app.change): undo takes them back
     missing, notes = change.replay(desk, pairs, history.turned(steps) if undo else steps)
+    if e and e.get("spans"):  # step patterns (zpkt.app.steps_commands): each span goes back to what it held
+        notes = [*notes, *steps_commands.swap(desk, e, forward=not undo)]
     desk.push(desk.history.view())
     desk.push_app(desk.monitor.message())
     reply: dict[str, Any] = {"ok": True, "entry": e and e["id"], "missing": missing}
@@ -431,9 +433,13 @@ def _gone_back(desk: Desk, pairs: list[list[Any]], entry: dict[str, Any] | None 
     going = [[key, desk.place_of(key, raw), (desk.history.value(key) or [""])[0]] for key, raw in pairs]
     desk.push_app({"t": "own", "values": [g for g in going if g[1] is not None]})
     missing, _ = change.replay(desk, pairs, (entry or {}).get("devices") or [])
+    notes = steps_commands.swap(desk, entry, forward=True) if entry and entry.get("spans") else []
     desk.push(desk.history.view())
     desk.push_app(desk.monitor.message())
-    return 200, {"ok": True, "moved": len(pairs), "missing": missing}
+    reply: dict[str, Any] = {"ok": True, "moved": len(pairs), "missing": missing}
+    if notes:
+        reply["notes"] = notes
+    return 200, reply
 
 
 def history_back(desk: Desk, cmd: Command) -> Reply:
@@ -456,8 +462,9 @@ def history_back(desk: Desk, cmd: Command) -> Reply:
 
 def arrangement_read(desk: Desk, cmd: Command) -> Reply:
     """The song as it lies in Live's Arrangement, read only: {"set", "bars", "beats_per_bar", "tracks": [{"id",
-    "name", "color", "muted", "regions": [{"id", "start", "end", "name", "color", "muted"}]}], "locators": [{"beat",
-    "name"}]}; starts and ends are beats. Kept until Live says a clip or a locator changed; {"fresh": true} reads again."""
+    "name", "color", "muted", "midi", "drum_rack", "regions": [{"id", "start", "end", "name", "color", "muted"}]}],
+    "locators": [{"beat", "name"}]}; starts and ends are beats. Kept until Live says a clip, a track or a locator
+    changed; {"fresh": true} reads again."""
     return 200, {"ok": True, **desk.arrangement(fresh=bool(cmd.args.get("fresh")))}
 
 

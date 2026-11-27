@@ -22,7 +22,19 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from zpkt.app import abilities, change, deskstate, history, jobs, organize, pages, propose, protocol, surfaces
+from zpkt.app import (
+    abilities,
+    change,
+    deskstate,
+    history,
+    jobs,
+    organize,
+    pages,
+    propose,
+    protocol,
+    steps_commands,
+    surfaces,
+)
 from zpkt.app.bus import Bus, Command, SetGuard
 from zpkt.app.connections import BUSY_WAIT_S, LiveConnections, bind_udp, open_connections
 from zpkt.app.monitor import Monitor
@@ -30,6 +42,7 @@ from zpkt.app.mounts import Mounts
 from zpkt.audio.levels import rms_to_db
 from zpkt.live import changes, config, desk_pager, meter, monitor_tracks, openset
 from zpkt.live import state as live_state
+from zpkt.live import steps as live_steps
 from zpkt.live import writes as live_writes
 from zpkt.live.describe import Description
 from zpkt.live.transport import LiveError
@@ -179,6 +192,11 @@ class Desk:
         self.making = threading.Lock()  # one "Make a surface" job at a time
         self.metering = threading.Lock()  # one "turn the spectrum on" job at a time
         self._arrangement: dict[str, Any] | None = None  # the song in Live as last read; None: read it again
+        self.steps_kits: list[str] | None = None  # the drum kits Live's browser offers, once asked (steps.kits)
+        # what the step sequencer is editing now (zpkt.app.steps_commands.focus); None: nothing
+        self.steps_focus: dict[str, Any] | None = None
+        self.steps_rev = 0  # counts the focus's changes
+        self.steps_swing: dict[tuple[str, int, int], float] = {}  # (track, bar, bars) -> the swing it was written with
         self._meter_tool: Any = None
         self._ensured = self._started = False  # the supervisor's: monitor tracks made, start checkpoint taken
         self._stale_reload_at = 0.0  # when the supervisor last reloaded a pager Live raised from
@@ -200,6 +218,7 @@ class Desk:
         register_all(bus, self)
         change.register(bus, self)
         propose.register(bus, self)
+        steps_commands.register(bus, self)
         jobs.register(bus, self.conn, self.descriptions.clear)
         return bus
 
@@ -222,7 +241,14 @@ class Desk:
             "song": song,
             "open_set": state.get("set") or "",
             "desk_set": self.settings.set_name,
+            "steps": self.steps_now(),
         }
+
+    def steps_now(self) -> dict[str, Any] | None:
+        """What the step sequencer is editing (zpkt.app.steps_commands.focus), as a copy; None: nothing."""
+        with self.lock:
+            focus = self.steps_focus
+            return None if focus is None else {**focus, "steps": list(focus["steps"])}
 
     def monitor_choice(self) -> deskstate.MonitorChoice:
         return self.snapshot()["monitor"]
@@ -260,9 +286,9 @@ class Desk:
         return snap
 
     def arrangement(self, fresh: bool = False) -> dict[str, Any]:
-        """The song as it lies in Live's Arrangement: tracks, their clips as regions, the locators
-        (deskstate.arrangement_view). One short read through the pager, kept until Live says it changed, the pager
-        loads again, or `fresh` asks."""
+        """The song as it lies in Live's Arrangement: tracks (each with whether it takes MIDI and plays a Drum
+        Rack), their clips as regions, the locators (deskstate.arrangement_view). One short read through the pager
+        and one of the MIDI tracks, kept until Live says it changed, the pager loads again, or `fresh` asks."""
         with self.lock:
             kept = None if fresh else self._arrangement
         if kept is not None:
@@ -270,10 +296,17 @@ class Desk:
         text = self.call("m.DESK.arrangement()")
         state = self.snapshot()
         per_bar = deskstate.song_facts(state)["beats_per_bar"]
-        view = deskstate.arrangement_view(json.loads(text) if text else {}, state.get("set") or "", per_bar)
+        # which tracks take MIDI, and which of those play a Drum Rack: one more short read (zpkt.live.steps)
+        midi = {t["index"]: t["drum_rack"] for t in live_steps.midi_tracks(self.conn)} if text else {}
+        view = deskstate.arrangement_view(json.loads(text) if text else {}, state.get("set") or "", per_bar, midi)
         with self.lock:
             self._arrangement = view
         return view
+
+    def forget_arrangement(self) -> None:
+        """What was read of the song is stale (the app itself made a track): the next read asks Live."""
+        with self.lock:
+            self._arrangement = None
 
     def restart_pager(self) -> None:
         self.descriptions.clear()  # the pager loads again: the set may hold other devices now

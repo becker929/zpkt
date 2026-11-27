@@ -15,7 +15,7 @@ import re
 import threading
 import traceback
 import types
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import Any, ClassVar, cast
 
 from zpkt.live.testing import display
@@ -1311,9 +1311,11 @@ class BrowserItem(LiveObject):
         loadable: bool = False,
         device: str | None = None,
         folder: bool | None = None,
+        chains: Sequence[Mapping[str, Any]] = (),
     ) -> None:
         super().__init__(None)
         self._name, self._children, self._loadable, self._device = name, list(children), loadable, device
+        self._chains = list(chains)  # a rack preset's chains, as zpkt.live.testing.sets describes them (a kit's pads)
         self._folder = bool(self._children) if folder is None else folder
 
     name = property(lambda self: self._name)
@@ -1367,7 +1369,12 @@ class Browser(LiveObject):
         if not item.is_loadable or item._device is None:
             raise RuntimeError(f"{item.name!r} cannot be loaded")
         name = item.name.rsplit(".", 1)[0] if item.name.lower().endswith((".adv", ".adg")) else None
-        device = devices.make(item._device, name=name)
+        if item._chains:  # a rack preset (a drum kit): the rack arrives with its chains
+            from zpkt.live.testing import sets
+
+            device = sets.device({"device": item._device, "name": name, "chains": item._chains})
+        else:
+            device = devices.make(item._device, name=name)
         if device.type == DeviceType.instrument:
             if track._kind != "midi":
                 raise RuntimeError("the fake loads instruments onto MIDI tracks only")

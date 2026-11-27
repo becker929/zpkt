@@ -90,6 +90,7 @@ def state_read(desk: Desk, cmd: Command) -> Reply:
         "match": state["match"],
         "compare": app_pages.compare_view(desk),
         "abilities": abilities_brief(desk),
+        "steps": desk.steps_now(),  # what the step sequencer is editing now; None: nothing
     }
 
 

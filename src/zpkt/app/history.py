@@ -42,6 +42,16 @@ kept in the entry's "stays", in the order they ran, each with its "words" ("Remo
 "devices" and leaves its "stays"; the command's reply names them. When a device is removed, the entry's earlier
 steps are rewritten as if the device had never been on the chain (`taken_out`), so undo still finds the others.
 
+A change to step patterns (the step sequencer's commands, zpkt.app.steps_commands) is one entry of kind "steps": the
+track, what was done ("edit": steps flipped or set, swing, clear; "length"; "paint"; "erase"; "track": a new drum
+track), how many times ("count"), and its "spans" in the order they were changed: {"track", "bar", "bars", "state"},
+where "state" is what that span of the Arrangement held before (None: no clip; else {"name", "notes"}). Undo puts
+each span's state back, last one first, and keeps what it found there in its place, so redo is the same act in the
+other order. The history only keeps the spans: zpkt.app.steps_commands writes them into Live (`swap`). Edits of one
+pattern by one hand within STEPS_RUN_S of each other are one entry (a run of taps is one undo), as changes to one
+control are. A new track stays after an undo (it is in the entry's "stays", as for a batch). Going back to before
+such an entry (`back`) carries the spans, so it too undoes as one.
+
 The history is shared by the UDP thread, the web threads and the supervisor, so every method takes its one lock,
 including the label table it shares with the desk.
 """
@@ -66,6 +76,7 @@ from zpkt.live import state as live_state
 COALESCE_S = 2.0  # an entry not touched for this long is settled: it goes to the change stream
 SAME_CONTROL_S = 30.0  # the same control changed again by the same person within this long: the same step
 JOINERS = ("you", "minilab")  # whose changes to one control join into one step (a hand); an agent's are by group
+STEPS_RUN_S = 5.0  # edits of one step pattern by the same hand within this long of each other: the same step
 TOGETHER_S = 0.3  # another control moved within this long of the step: the same gesture (a macro's parameters)
 EXPECT_S = 2.0  # a value the desk wrote itself (undo, redo, revert) is not a new move for this long
 KEEP = 500  # entries kept on disk
@@ -516,6 +527,75 @@ class History:
             self._save()
             return entry
 
+    # ---- step patterns (zpkt.app.steps_commands) -----------------------------------------------------------------
+    def steps_change(
+        self,
+        who: protocol.Who | str,
+        track: str,
+        what: str,
+        bar: int,
+        bars: int,
+        spans: list[dict[str, Any]],
+        count: int = 1,
+        more: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """A change to step patterns that Live has made: one entry of kind "steps" (the module docstring has its
+        shape). `spans` say what each changed span held before. An "edit" of the pattern the entry on top is
+        about, by the same hand and within STEPS_RUN_S of it, joins that entry: its count grows, and its spans
+        stay, since they hold what was there before the first of the run. `more` is kept in a new entry as it is
+        ("stays" for what undo leaves, "kit", "to")."""
+        if who not in live_changes.WHO:
+            raise ValueError(f"who is one of {', '.join(live_changes.WHO)}, not {who!r}")
+        with self.lock:
+            now = self.clock()
+            top = self.entries[-1] if self.entries and self.pos == len(self.entries) else None
+            if (
+                what == "edit"
+                and top is not None
+                and top["k"] == "steps"
+                and top.get("what") == "edit"
+                and who in JOINERS
+                and who_of(top) == who
+                and (top["track"], top["bar"], top["bars"]) == (track, bar, bars)
+                and now - top["at"] < STEPS_RUN_S
+            ):
+                top["count"] = int(top.get("count", 1)) + count
+                top["at"] = now
+                self._save()
+                return top
+            entry: dict[str, Any] = {
+                "k": "steps",
+                "who": who,
+                "track": track,
+                "what": what,
+                "bar": bar,
+                "bars": bars,
+                "count": count,
+                "spans": spans,
+                "moves": [],
+                **(more or {}),
+            }
+            self._push(entry)
+            self._streamed.add(entry["id"])  # no control's value in it: nothing for the change stream
+            self._save()
+            return entry
+
+    def steps_swapped(self, entry: dict[str, Any]) -> None:
+        """An undo or redo put the entry's spans back and left in each what it found there: keep that."""
+        with self.lock:
+            self._save()
+
+    @staticmethod
+    def _spans_back(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """What takes the step-pattern changes of `entries` (oldest first, all in effect) back as one act: their
+        spans in the order an undo of each in turn would put them back, each span once, with the state the
+        oldest change of it found. A span keeps the place of its last turn in that order, so a clip that was
+        made longer is taken away before the shorter one is put back."""
+        turn = [s for e in reversed(entries) for s in reversed(e.get("spans") or [])]
+        last = {(s["track"], s["bar"], s["bars"]): i for i, s in enumerate(turn)}
+        back: list[dict[str, Any]] = json.loads(json.dumps([turn[i] for i in sorted(last.values())]))
+        return back
+
     def value(self, key: str) -> list[Any] | None:
         """[shown, raw] of a control as the desk last saw it."""
         with self.lock:
@@ -715,18 +795,22 @@ class History:
                 if k in self.cur and not same(self.cur[k][1], v[1])
             ]
             steps = [s for e in self.entries[at : self.pos] for s in e.get("devices", [])]
-            if not moves and not steps:
+            spans = self._spans_back(self.entries[at : self.pos])  # step patterns: put back by the caller (`swap`)
+            if not moves and not steps and not spans:
                 return [], None
             first = self.entries[at]
             named = (
                 first.get("compare", {}).get("name")
                 or first.get("why")
                 or (first["moves"][0]["label"] if first["moves"] else "")
+                or first.get("track", "")
             )
             what = {"id": entry_id, "label": named, "key": first["moves"][0]["key"] if first["moves"] else ""}
             entry: dict[str, Any] = {"k": "revert", "before": what, "moves": moves, "who": who}
             if steps:
                 entry["devices"] = turned(steps)
+            if spans:
+                entry["spans"] = spans
             return self._go(entry)
 
     # ---- what "changed" counts from --------------------------------------------------------------------------------

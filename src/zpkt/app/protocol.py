@@ -161,7 +161,45 @@ class DeskMessage(TypedDict):
     open: int
 
 
-PageEvent = PagerMessage | FullMessage | HistoryMessage | MeterMessage | SurfaceMessage | DeskMessage
+class StepsFocus(TypedDict):
+    """What the step sequencer is editing (zpkt.app.steps_commands.focus): a pattern, a sound, its steps."""
+
+    track: str
+    bar: int  # the pattern's first bar, counted from 1
+    bars: int  # 1, 2 or 4
+    steps_per_bar: int
+    view: int  # which bar of the pattern the 16 pads show, from 0
+    pitch: int
+    name: str  # the sound's name
+    velocity: int  # what a new step gets
+    length: float  # ... in steps
+    swing: float  # the pattern's swing, as a part of a step
+    steps: list[int]  # the sound's steps over the whole pattern: 0, or the note's velocity
+    blocked: bool  # clips are in the way: nothing can be written
+    rev: int  # counts up with every change of the focus
+
+
+class StepsEdit(TypedDict):
+    """A pattern was changed through the app: which one, and by which command."""
+
+    track: str
+    bar: int
+    bars: int
+    what: str  # toggle, set, write, paint, erase, undo
+
+
+class StepsMessage(TypedDict):
+    """The step sequencer's focus, sent whole whenever it changes (None: nothing is being edited), and after every
+    change to a pattern (`edit`). A controller lights its pads from focus.steps and turns a pad press into
+    steps.toggle with the focus and a step number."""
+
+    t: Literal["steps"]
+    focus: StepsFocus | None
+    src: NotRequired[str]  # the page that asked, if it said so: it knows its own changes by it
+    edit: NotRequired[StepsEdit]
+
+
+PageEvent = PagerMessage | FullMessage | HistoryMessage | MeterMessage | SurfaceMessage | DeskMessage | StepsMessage
 
 
 class BadMessage(ValueError):
