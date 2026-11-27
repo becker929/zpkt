@@ -99,7 +99,8 @@ of it there as one more `Change`.
   `device` with `on` switches a device on or off (it is the value `<track>/<device>/Device On`). `move` puts a
   device at another index of its chain. A second device of a name is `Saturator#2`, as in state keys. There is no
   step that removes a device, makes a track, changes routing or clips, or runs code: those wait for your tap, and
-  are `live.propose` (below).
+  are `live.propose` (below). `use` runs an ability, code you allowed for good ("Abilities", below): it needs no
+  tap, and undo does not take it back.
 - **Checked whole, first.** Shape, limits (40 steps, 8 adds), the rails, then Live's own names and ranges: every
   track, device, effect name, range and step of a list. Any problem refuses the whole batch with 400 and `problems`,
   one plain sentence each, and nothing has changed: no value, no device, no checkpoint. A value on a device the
@@ -186,6 +187,77 @@ step or one of three more:
 The Live calls are `zpkt.live.chain.delete`, `zpkt.live.newtrack` and `zpkt.live.describe.shown_for`. Tests:
 `tests/app/test_live_propose.py` (the check, the run, History, undo), `tests/app/test_propose_tool.py` (the wait)
 and `tests/app/test_propose_page.py` (the card and the row).
+
+### Abilities: code you allowed for good
+
+`abilities.py` (the store and the rules), `coderun.py` (code made ready to send), `propose.py` and `change.py`
+(the commands). Anthony, 26 November 2026: "an 'Always' button which adds the code to an auto allowed set, as new
+abilities with documentation and everything, run the same as other tools", and "guide the agent to write functions
+with clean parameters ... allow the agent to chain tools together so we build abstraction over time."
+
+- **"Always".** The card of a proposal with at least one code step has a third button between "Do it" and
+  "Don't". It does what "Do it" does, and keeps each code step that ran without an error as an ability. A step
+  that failed or did not run is not kept. A proposal with no code step keeps two buttons, and so does one whose
+  code would not fit (there are at most 50 abilities). The card then says what it kept, by name.
+- **What an ability is.** A name, one sentence (`does`), parameters, and the code exactly as the card showed it:
+  one JSON file, `<abilities_dir>/<name>.json` (`lib/contracts/ability.schema.json`), with `made`, `session`,
+  `runs` and `last_run`. `abilities_dir` is a rig setting (default `<sets_dir>/abilities`, `ZPKT_ABILITIES_DIR`):
+  an ability is code for Live in general, not for one set. The app never edits one in place.
+- **Parameters.** A code step may carry `"name"` (snake_case), `"params"` (`{name: {"type": "number" | "integer" |
+  "string" | "boolean", "description", "default"?, "enum"?}}`, at most 8) and `"args"`, this run's values. A
+  parameter without a default is required. In the code the values are the dict `args`. A step with no name gets
+  one made from `does`, which never takes another ability's place.
+- **Arguments are data.** They are checked against the parameters at the proposal and at every run, the defaults
+  are filled in, and they reach Live as a JSON literal that the first line of the call parses into `args`. No
+  character of an argument is ever formatted into the code's text (`abilities.program`).
+- **Replacing.** A code step named like an ability is a new version of it. Its card says "Replaces <name>" and how
+  many abilities use it. "Do it" runs the new code once and leaves the kept one alone; only "Always" on that card
+  replaces it, and from then on everything that uses it runs the new code.
+- **Chaining.** In an ability's code, and in a proposal's, `use("other_ability", {...})` runs another ability and
+  returns its `result`. The name must be written out, so the app can read what a piece of code uses (`ast`). It
+  sends exactly those abilities along in the same one call (their code and parameters as part of the JSON
+  literal) and defines `use` in front of the code: each ability used runs in a namespace of its own, with its own
+  `args` and the same Live names, and its arguments are checked there too. Refused before anybody is asked: a
+  name that is not written out, an ability that is not there, a circle, more than 5 uses deep, more than 12
+  abilities in one call, and written-out arguments that do not fit. The card shows what a code step uses as
+  chips; the list shows "uses" and "used by".
+- **Running one: `ability.run {name, args}`.** No card and no wait: the tap on "Always" was the standing yes. It is
+  the second command with `agent_may` (`effects.AGENT_MAY`), held by the wrong-set guard and the lock, for the
+  API's callers (never the web page). One call to Live. The reply is `{"ok", "name", "result"}` (and `no_undo`),
+  or 502 with the error and "part of the code may have run", 400 when the arguments or the rails say no (nothing
+  ran), 404 when it is gone ("propose its code again").
+- **History.** A run is one row (a `change` entry whose `why` is the call, `set_tempo(bpm=133)`) with a
+  checkpoint before it, and its code is in the row's `stays`: undo does not take it back. An ability whose code,
+  and all it uses, only reads (`zpkt.live.agent.only_reads`, the test `live.read` uses) leaves no row and no
+  checkpoint.
+- **As a step.** `{"use": "<name>", "args": {...}}` is a step of `live.change` and of `live.propose`. It is checked
+  with the batch (the ability is there, the arguments fit, the rails) and runs in its place among the other
+  steps. In `live.change` it needs no tap. At most 8 in a batch. History treats it as code ("no undo").
+- **As a tool.** In Ask each ability is a tool of its own, `ability_<name>`: its description starts with `does`,
+  then one line per parameter, and its input schema is made from the parameters (`ask/tools.py`). The MCP server
+  lists the tools from the app (`GET /app/ask/api/tools`) and says when the list changed (`listChanged`: after
+  every call, and every 5 seconds while it waits), so an ability kept in one turn is a tool at the latest in the
+  next. `desk.state` (`read_state`) lists the abilities too, so an agent can look before it proposes.
+- **Fewer, better ones.** The agent is told to write a code step as a function of its parameters, named verb_noun
+  for what it does in general, to look at the abilities first, and to replace one that almost fits rather than
+  add a second (the `propose_live` description, the agent's guide). Two checks help. A parameter that is declared
+  and never read (`args["x"]`, `args.get("x")`) is a problem: 400, nobody is asked. `hints` are not: an ability
+  whose name differs only by an ending or whose sentence is the same, and a track or device of the open set
+  spelled out in code that has no text parameter. They go to the agent in the reply, never onto the card.
+- **Seeing and removing them.** The Ask sheet (the clock button) has "Abilities": name, sentence, parameters with
+  their defaults, runs, what each uses and is used by, the code behind the row, and a Remove key.
+  `ability.remove {name}` is the person's only (the page and the command line; an agent gets 403). It is
+  immediate: the tool is gone from the list and a call answers 404. The file is moved to `removed/` in the same
+  folder. An ability that used it is marked "Broken: needs <name>" and answers so until that one is proposed
+  again. `GET /app/ask/api/abilities` is the list as JSON and `GET /app/ask/api/abilities.md` the same as a page
+  to read: what the agent may do on its own now.
+- **The rails, said plainly.** An ability is the exact code you saw, run with new argument values. The screen of
+  proposals applies when it is kept and at every run, to the code and to text arguments (a monitor track's name,
+  `zpkt listen`, `zpkt desk meter`), also inside Live when one ability hands text to another. It is a guard
+  against an accident, not a wall. Removing an ability is immediate.
+
+Tests: `tests/app/test_abilities.py` (the bus), `tests/app/test_ability_tools.py` (the gate, the routes, the MCP
+list) and `tests/app/test_ability_page.py` (the card and the sheet).
 
 ## What it serves
 
@@ -588,7 +660,7 @@ the Ask tab of `/app/` (`/app/#ask`); its page and API are under `/app/ask/`.
   The main conversation cannot be deleted. (Until 26 November 2026 the most recent old session became the main one.
   On its next start the store puts such an adopted session back in the archive, once: `SessionStore._fresh_mains`.)
 - **Modes.** A producer has one mode, `auto`, and no menu: full power (Anthony, 26 November 2026). The agent has the
-  shell, file edits, every tool and the app's five tools. For Claude Code that is `--permission-mode auto` (Claude
+  shell, file edits, every tool and the app's five tools (and the abilities). For Claude Code that is `--permission-mode auto` (Claude
   Code decides what is safe; nothing is disallowed and the Mac's other MCP servers are there); for Gemini it is
   `yolo`, and a question it still asks is answered yes. The default models are `claude-opus-5-5` and `gemini-4-neon`
   (`CLAUDE_AGENT_MODEL` and `GEMINI_AGENT_MODEL` override them). The careful mode `build` is still there: the app's
@@ -615,7 +687,8 @@ the Ask tab of `/app/` (`/app/#ask`); its page and API are under `/app/ask/`.
   a page with compare states, or changes the one it made (Pages, Compare), and links to it.
   They are app commands behind a small MCP server (`python -m zpkt.app.ask.mcp`) that calls
   `POST /app/ask/api/tool` with the session's token. The bus tags them `agent` and groups them by session. Only
-  `change_live` moves Live on the agent's own word, `propose_live` moves it after my tap, and an agent cannot name
+  `change_live` moves Live on the agent's own word, `propose_live` moves it after my tap, an ability
+  (`ability_<name>`, one tool each: "Abilities", above) runs code I allowed for good, and an agent cannot name
   any other command. A `propose_live` call may take 4 minutes (the wait for the tap), so the MCP server gives that
   tool 5 (`mcp.timeout_for`); Gemini CLI gives an MCP call 10.
 - **Live only through the app.** Ask's agents have a shell, and `ZPKT_AGENT=1` is set in it. With that set, every

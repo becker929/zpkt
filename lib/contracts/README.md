@@ -20,6 +20,7 @@ output against these files in its tests, so a join cannot drift silently.
 | `ask-event.schema.json` | Ask (`zpkt.app.ask`): every line of a session's events file and every event of its stream | the Ask page, the notes, the failure budget | written by hand to match `src/zpkt/app/ask/events.py` and the engines; its tests check both agree |
 | `ask-session.schema.json` | Ask's sessions index (`sessions.json`) | the Ask page and service | written by hand; Zpkt web's entries pass too |
 | `ask-tool.schema.json` | an agent's MCP server (`zpkt.app.ask.mcp`) | `POST /app/ask/api/tool` | written by hand to match `src/zpkt/app/ask/tools.py` |
+| `ability.schema.json` | the app, when a proposal's card is answered with "Always" (`<abilities_dir>/<name>.json`) | the app (`zpkt.app.abilities`: `ability.run`, the agents' tool list), a person reading what an agent may run | written by hand to match `src/zpkt/app/abilities.py`; `tests/app/test_abilities.py` checks a kept file against it |
 
 The music bot's and booth's contracts (`score.schema.json`, `booth-*.schema.json`) moved with them to the private
 repo `becker929/music-bot` (its `contracts/`) on 24 November 2026.

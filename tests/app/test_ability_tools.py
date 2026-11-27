@@ -8,11 +8,12 @@ import io
 import json
 import threading
 
+import jsonschema
 import pytest
 
 from tests.app.conftest import wait_for
 from tests.app.test_abilities import BPM, DOUBLE, READ_TEMPO, SET_TEMPO, batch
-from tests.app.test_ask_http import API, raw, script, start, text
+from tests.app.test_ask_http import API, CONTRACTS, raw, script, start, text
 from tests.app.test_propose_tool import events, proposing, tap
 from zpkt.app.ask import mcp, tools
 from zpkt.app.ask.gemini import is_app_tool
@@ -53,6 +54,14 @@ def test_always_runs_the_batch_and_keeps_its_code_and_the_reply_names_the_new_to
     told = events(asked, s["id"], "proposal")[0]
     assert told["state"] == "done" and told["saved"] == ["set_tempo"] and "unsaved" not in told
     assert events(asked, s["id"], "permission_answer")[0]["answered"] == "always"
+    schema = json.loads((CONTRACTS / "ask-event.schema.json").read_text())
+    for e in events(asked, s["id"]):
+        if e["type"] in ("permission", "permission_answer", "proposal"):
+            jsonschema.validate(e, schema)
+    body = {"session": "s", "token": "t", "tool": "ability_set_tempo", "args": {"bpm": 1}}
+    jsonschema.validate(
+        body, {"$ref": "#/$defs/request", **json.loads((CONTRACTS / "ask-tool.schema.json").read_text())}
+    )
     assert "ability_set_tempo" in [t.name for t in asked.ask.gate.tools()]
 
 

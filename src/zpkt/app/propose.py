@@ -34,7 +34,22 @@ NOT take back a removed device (its settings are gone), a new track, or code (th
 those are the entry's "stays" (zpkt.app.history), the row marks them, and undo's reply names them. Code is recorded
 as soon as it was sent, also when Live reported an error: part of it may have run.
 
-Code runs as `live.run` does (zpkt.app.jobs): the string as it is, one call, under the bus's lock.
+Code runs as `live.run` does (zpkt.app.jobs): one call, under the bus's lock, with `args` defined in front of it
+(zpkt.app.coderun).
+
+Abilities (zpkt.app.abilities) start here. A code step may say what makes it reusable: "name", "params" and "args"
+(this run's values; in the code they are the dict `args`). The card then offers a third answer, "Always": the
+gate sends `live.propose` with `always`, the batch runs as after "Do it", and each code step that ran without an
+error is kept as an ability under its name (a step with no name gets one made from `does`, which never takes an
+ability's place). The same name as an ability means a replacement: the card says so, and it happens only after
+"Always". More is checked for such steps, and refused before anybody is asked: arguments that do not fit the
+parameters, a parameter that is declared and never read, a `use("x", ...)` of an ability that is not there, a
+circle, a chain deeper than 5. `hints` (an ability that already looks like this one; a track or device of the set
+spelled out in code with no text parameter) go to the agent in the reply and never onto the card.
+
+Three more commands: `ability.run` runs one with new arguments and no card (an agent may: the "Always" was the
+word; code that only reads leaves no History row), `ability.list` lists them, `ability.remove` takes one away at
+once and is the person's only. A `use` step of a batch (`live.change` too) runs one in its place among the steps.
 """
 
 from __future__ import annotations

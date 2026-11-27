@@ -19,12 +19,21 @@
           "type": "string"
         },
         "tool": {
-          "enum": [
-            "make_page",
-            "read_state",
-            "read_measurement",
-            "change_live",
-            "propose_live"
+          "description": "One of the five built-in tools, or an ability's tool (ability_<name>: code the person allowed for good).",
+          "anyOf": [
+            {
+              "enum": [
+                "make_page",
+                "read_state",
+                "read_measurement",
+                "change_live",
+                "propose_live"
+              ]
+            },
+            {
+              "type": "string",
+              "pattern": "^ability_[a-z][a-z0-9_]{0,39}$"
+            }
           ]
         },
         "args": {
@@ -50,7 +59,10 @@
           "description": "change_live: how many steps of the batch ran."
         },
         "undo": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "description": "change_live: the History row that one undo takes back; null when nothing changed."
         },
         "now": {
@@ -103,7 +115,30 @@
         },
         "ran": {
           "type": "array",
-          "description": "propose_live: each code step sent to Live, {step, ok, result}."
+          "description": "change_live, propose_live: each code step or ability sent to Live, {step, ok, result, ability?}."
+        },
+        "always": {
+          "type": "boolean",
+          "description": "propose_live: the person tapped Always; `abilities` lists what was kept."
+        },
+        "abilities": {
+          "type": "array",
+          "description": "propose_live after Always: the code steps kept as abilities, each {name, tool, replaced}. `tool` is the name to call from now on."
+        },
+        "not_saved": {
+          "type": "array",
+          "description": "propose_live after Always: the code steps that were not kept, each {name, why}."
+        },
+        "hints": {
+          "type": "array",
+          "description": "propose_live: how a code step could be more general next time. Not shown to the person."
+        },
+        "name": {
+          "type": "string",
+          "description": "An ability's tool: the ability that ran."
+        },
+        "result": {
+          "description": "An ability's tool: what its code put in `result`."
         }
       }
     }

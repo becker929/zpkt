@@ -67,8 +67,9 @@ AGENT_NOT_FROM_SHELL = (
     "values, or add, bypass, enable or reorder devices, use the app's `change_live` tool (the app's command "
     "live.change): all the steps of the request in one call. To remove a device, make a track, or change routing "
     "or clips with code in Live, use the app's `propose_live` tool (live.propose): the user sees the steps in the "
-    "chat and taps Do it, and then the app runs them. Anything else (saving, opening a set, a reset, a render) "
-    "is the user's to do: say so in one sentence. Commands that only read Live still work."
+    "chat and taps Do it, and then the app runs them. Code the user allowed for good there (Always) is an "
+    "ability, a tool named ability_<name> that runs with no question. Anything else (saving, opening a set, a "
+    "reset, a render) is the user's to do: say so in one sentence. Commands that only read Live still work."
 )
 AGENT_READ_ONLY = AGENT_NOT_FROM_SHELL  # the older name
 

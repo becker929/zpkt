@@ -118,6 +118,9 @@ details.tool pre{margin:0 10px 10px}
 .ab details{min-width:0}
 .ab summary{list-style:none;cursor:pointer;min-height:44px;display:flex;flex-direction:column;justify-content:center;gap:2px;padding:4px 0}
 .ab summary b{font:600 13.5px ui-monospace,Menlo,Consolas,monospace;overflow-wrap:anywhere}
+.ab-name{display:flex;align-items:center;gap:6px;min-width:0}
+.ab-chev{flex:none;color:var(--mute);transition:transform .15s}
+.ab details[open] .ab-chev{transform:rotate(90deg)}
 .ab summary span{font-size:13.5px;line-height:1.35;overflow-wrap:anywhere}
 .ab-par{display:block;font:12px/1.45 ui-monospace,Menlo,Consolas,monospace;color:var(--mute);overflow-wrap:anywhere}
 .ab-meta{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;font-size:12px;color:var(--mute);margin-top:2px}
@@ -934,7 +937,7 @@ function renderAbilities(found, most) {
   list.innerHTML = found.length ? '' : '<p class="note">None yet.</p>';
   for (const a of found) {
     const el = document.createElement('div'); el.className = 'ab'; el.dataset.ab = a.name;
-    el.innerHTML = '<details><summary><b></b><span class="ab-does"></span></summary><pre></pre></details><button type="button" class="ab-rm"></button>';
+    el.innerHTML = '<details><summary><span class="ab-name"><b></b><svg class="ab-chev" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ab-does"></span></summary><pre></pre></details><button type="button" class="ab-rm"></button>';
     el.querySelector('b').textContent = a.name;
     el.querySelector('.ab-does').textContent = a.does;
     const sum = el.querySelector('summary');

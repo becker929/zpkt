@@ -64,8 +64,9 @@ def test_every_api_path_the_page_calls_is_served(asked):
     root = Path(__file__).resolve().parents[2] / "src" / "zpkt" / "app" / "static" / "ask"
     source = (root / "index.html").read_text() + "".join(p.read_text() for p in (root / "zpkt").glob("*.js"))
     paths = set(re.findall(r"/app/ask/api/([a-z]+)", source)) | set(re.findall(r"\$\{API\}/([a-z]+)", source))
-    served = {"engines", "workspaces", "sessions", "attachments", "main", "archive"}
+    served = {"engines", "workspaces", "sessions", "attachments", "main", "archive", "abilities"}
     assert paths == served, paths ^ served
+    assert asked.rig.get(f"{API}/abilities")[0] == 200
     for gone in ("surfaces", "library"):
         assert asked.rig.get(f"{API}/{gone}")[0] == 404
     assert not re.search(r"requestMIDIAccess|zpkt-surface-state|AudioContext|createOscillator", source)
