@@ -196,6 +196,7 @@ class Desk:
         # what the step sequencer is editing now (zpkt.app.steps_commands.focus); None: nothing
         self.steps_focus: dict[str, Any] | None = None
         self.steps_rev = 0  # counts the focus's changes
+        self.steps_swing: dict[tuple[str, int, int], float] = {}  # (track, bar, bars) -> the swing it was written with
         self._meter_tool: Any = None
         self._ensured = self._started = False  # the supervisor's: monitor tracks made, start checkpoint taken
         self._stale_reload_at = 0.0  # when the supervisor last reloaded a pager Live raised from

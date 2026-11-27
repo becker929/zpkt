@@ -389,3 +389,82 @@ def test_the_focus_follows_a_paint_over_the_pattern_in_hand(drums):
     assert told["edit"] == {"track": "Drums", "bar": 2, "bars": 2, "what": "paint"} and told["src"] == "page-9"
     ask(rig, "steps.erase", {"track": "Drums", "bars": [3], "length": 1})
     assert rig.state()["steps"]["steps"] == [0] * 16 and heard(shell)[-1]["edit"]["what"] == "erase"
+
+
+# ---- a step's velocity and length; the whole pattern (swing, clear, another length) -------------------------------
+
+
+def pattern_of(rig, bar=1, bars=1, **more):
+    return ask(rig, "steps.read", {"track": "Drums", "bar": bar, "bars": bars, **more})[1]["pattern"]
+
+
+def test_set_changes_one_steps_velocity_or_length(drums):
+    rig = drums
+    span = {"track": "Drums", "bar": 1, "bars": 1}
+    beat(rig, steps_on=(0, 4))
+    code, got = ask(rig, "steps.set", {**span, "pitch": KICK, "step": 4, "velocity": 61})
+    assert code == 200 and got == {"ok": True, "on": True, "velocity": 61, "length": 1.0}
+    assert notes(rig) == [(0.0, KICK, 0.0, 100), (0.0, KICK, 1.0, 61)]
+    got = ask(rig, "steps.set", {**span, "pitch": KICK, "step": 4, "length": 2.0})[1]
+    assert got["velocity"] == 61 and got["length"] == 2.0
+    clip = rig.track("Drums").arrangement_clips[0]
+    assert sorted((n.start_time, n.duration) for n in clip._notes) == [(0.0, 0.25), (1.0, 0.5)]
+    code, got = ask(rig, "steps.set", {**span, "pitch": KICK, "step": 5, "velocity": 61})
+    assert code == 409 and got["error"] == "no note on that step"
+    assert ask(rig, "steps.set", {**span, "pitch": KICK, "step": 4})[0] == 400  # neither a velocity nor a length
+    assert ask(rig, "steps.set", {**span, "pitch": KICK, "step": 4, "velocity": 61}, who="agent")[0] == 403
+    assert ask(rig, "steps.set", {**span, "track": "mon A", "pitch": KICK, "step": 4, "velocity": 61})[0] == 403
+
+
+def test_write_puts_the_whole_pattern_swing_and_clear(drums):
+    rig = drums
+    beat(rig, steps_on=(0, 1, 2, 3))
+    beat(rig, steps_on=(4,), pitch=SNARE)
+    pattern = pattern_of(rig)
+    code, got = ask(rig, "steps.write", {"track": "Drums", "bar": 1, "pattern": {**pattern, "swing": 0.5}})
+    assert code == 200 and got["created"] is False and got["pattern"]["swing"] == 0.5 and got["off_grid"] == 0
+    clip = rig.track("Drums").arrangement_clips[0]
+    assert sorted(n.start_time for n in clip._notes if n.pitch == KICK) == [0.0, 0.375, 0.5, 0.875]  # every 2nd late
+    # the swing is remembered for that pattern, so a read with no word of it puts the late steps where they are
+    again = pattern_of(rig)
+    assert again["swing"] == 0.5 and again["off_grid"] == 0
+    assert next(r for r in again["rows"] if r["pitch"] == KICK)["steps"][:4] == [100] * 4
+    # and a toggle that says nothing of swing lands a late step where the pattern has it
+    ask(rig, "steps.toggle", {"track": "Drums", "bar": 1, "bars": 1, "pitch": KICK, "step": 5})
+    assert 1.375 in [n.start_time for n in clip._notes if n.pitch == KICK]
+    # clear one sound: its row empty, the other as it was
+    cleared = {**again, "rows": [{**r, "steps": [0] * 16} if r["pitch"] == KICK else r for r in again["rows"]]}
+    got = ask(rig, "steps.write", {"track": "Drums", "bar": 1, "pattern": cleared})[1]
+    assert [n.pitch for n in clip._notes] == [SNARE] and got["hash"] != steps.content_hash([])
+    # clear all: the clip stays, empty
+    empty = {**again, "rows": [{**r, "steps": [0] * 16} for r in again["rows"]]}
+    assert ask(rig, "steps.write", {"track": "Drums", "bar": 1, "pattern": empty})[1]["hash"] == steps.content_hash([])
+    assert clips(rig) == [(0.0, 4.0)] and notes(rig) == []
+    assert ask(rig, "steps.write", {"track": "Drums", "bar": 1, "pattern": {"bars": 3, "rows": []}})[0] == 400
+    assert ask(rig, "steps.write", {"track": "Drums", "bar": 1})[0] == 400
+    assert ask(rig, "steps.write", {"track": "Drums", "bar": 1, "pattern": empty}, who="agent")[0] == 403
+
+
+def longer(pattern, bars):
+    total = 16 * bars
+    rows = [{**r, "steps": (r["steps"] + [0] * total)[:total]} for r in pattern["rows"]]
+    return {**pattern, "bars": bars, "rows": [{k: v for k, v in r.items() if k != "lengths"} for r in rows]}
+
+
+def test_write_changes_a_patterns_length_when_only_its_own_clip_is_in_the_way(drums):
+    rig = drums
+    beat(rig, bar=3)
+    one = pattern_of(rig, bar=3)
+    # 1 bar becomes 2: the one-bar clip goes and a two-bar clip with the same notes takes its place
+    code, got = ask(rig, "steps.write", {"track": "Drums", "bar": 3, "pattern": longer(one, 2), "from_bars": 1})
+    assert code == 200 and got["bars"] == 2 and got["clip"] == {"name": "", "start": 8.0, "end": 16.0}
+    assert clips(rig) == [(8.0, 16.0)] and [n[2] for n in notes(rig)] == [0.0, 1.0, 2.0, 3.0]
+    # 2 bars become 4 with bar 7 taken by another clip: refused, and the two-bar clip is still there
+    ask(rig, "steps.toggle", {"track": "Drums", "bar": 6, "bars": 1, "pitch": SNARE, "step": 0})
+    two = pattern_of(rig, bar=3, bars=2)
+    code, got = ask(rig, "steps.write", {"track": "Drums", "bar": 3, "pattern": longer(two, 4), "from_bars": 2})
+    assert code == 409 and got["error"] == "clips are in the way" and len(got["blocked"]) == 2
+    assert clips(rig) == [(8.0, 16.0), (20.0, 24.0)] and len(notes(rig)) == 5
+    # back to 1 bar: the second bar's notes are not in the pattern any more
+    code, got = ask(rig, "steps.write", {"track": "Drums", "bar": 3, "pattern": longer(two, 1), "from_bars": 2})
+    assert code == 200 and clips(rig) == [(8.0, 12.0), (20.0, 24.0)]

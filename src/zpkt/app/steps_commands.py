@@ -9,6 +9,8 @@ The page, the API and later the MiniLab all pass this one door:
                                                    track hold a clip of that length (read)
     steps.kits                                     the Drum Rack presets Live's browser offers (read; kept)
     steps.toggle {track, bar, bars, pitch, step}   flip one step
+    steps.set {track, bar, bars, pitch, step, ..}  another velocity or length for a step's note
+    steps.write {track, bar, pattern}              the span holds exactly this pattern (swing, clear, another length)
     steps.paint {track, from_bar, bars, to: [..]}  stamp the pattern's clip onto other bars
     steps.erase {track, bars: [..], length}        delete the clips of that length that start on those bars
     steps.new_track {name, kit}                    a MIDI track with that kit, in front of the monitor tracks
@@ -91,6 +93,15 @@ def number(args: Any, name: str, default: float) -> float:
     return float(value)
 
 
+def swing_for(desk: Desk, args: Any, track: str, bar: int, bars: int) -> float:
+    """The swing a pattern's notes were written with: what the command says, else what the last `steps.write` of
+    that pattern said (kept while the app runs: Live's notes do not say it), else none."""
+    if "swing" in args:
+        return number(args, "swing", 0.0)
+    with desk.lock:
+        return desk.steps_swing.get((track, bar, bars), 0.0)
+
+
 def the_span(args: Any) -> tuple[str, int, int, int]:
     """(track, bar, bars, steps per bar) of the pattern a command is about."""
     return (
@@ -140,7 +151,7 @@ def read(desk: Desk, cmd: Command) -> Reply:
     The rows are the Drum Rack's sounds. A track with another instrument (or none) has a row for each pitch that
     has a note, and for C1 to G1 when it has none. Three short calls to Live."""
     track, bar, bars, per_bar = the_span(cmd.args)
-    swing = number(cmd.args, "swing", 0.0)
+    swing = swing_for(desk, cmd.args, track, bar, bars)
     total = max(1, min(MAX_TOTAL_BARS, whole(cmd.args, "total_bars", max(64, bar + bars))))
     with asking():
         kit = live_steps.sounds(desk.conn, track)
@@ -364,7 +375,7 @@ def toggle(desk: Desk, cmd: Command) -> Reply:
                 whole(cmd.args, "step"),
                 whole(cmd.args, "velocity", 100),
                 number(cmd.args, "length", 1.0),
-                swing=number(cmd.args, "swing", 0.0),
+                swing=swing_for(desk, cmd.args, track, bar, bars),
             )
         )
     if (refused := in_the_way(did)) is not None:
@@ -378,6 +389,93 @@ def toggle(desk: Desk, cmd: Command) -> Reply:
         clips=bool(did["created"]),
     )
     return 200, {"ok": True, "on": did["on"], "velocity": did["velocity"], "created": did["created"]}
+
+
+def set_step(desk: Desk, cmd: Command) -> Reply:
+    """Give the note on a step another velocity, another length (in steps) or both: {"track", "bar", "bars",
+    "pitch", "step", "velocity"?, "length"?, "swing"?}. The answer is {"on": true, "velocity", "length"}; 409 when
+    the step holds no note, or clips are in the way. One call to Live."""
+    track, bar, bars, per_bar = the_span(cmd.args)
+    velocity = whole(cmd.args, "velocity") if "velocity" in cmd.args else None
+    length = number(cmd.args, "length", 1.0) if "length" in cmd.args else None
+    pitch, step = whole(cmd.args, "pitch"), whole(cmd.args, "step")
+    with asking():
+        did = plain(
+            live_steps.set_step(
+                desk.conn,
+                track,
+                bar,
+                bars,
+                per_bar,
+                pitch,
+                step,
+                velocity,
+                length,
+                swing=swing_for(desk, cmd.args, track, bar, bars),
+            )
+        )
+    if (refused := in_the_way(did)) is not None:
+        return refused
+    edited(desk, (track, bar, bars), "set", source_of(cmd.args), (pitch, step, did["velocity"]), clips=False)
+    return 200, {"ok": True, "on": True, "velocity": did["velocity"], "length": did["length"]}
+
+
+def replaces(desk: Desk, track: str, bar: int, pattern: Mapping[str, Any], old_bars: int) -> bool:
+    """Is the clip of `old_bars` bars at `bar` all that is in the way of the pattern's span? Then the caller
+    deletes it and writes the pattern (of another length) in its place. False when no clip needs to go (the span
+    is free, or holds a clip of the new length) and when other clips are in the way too: the write then answers
+    for itself, and nothing has been deleted. One short read."""
+    found = live_steps.read(
+        desk.conn, track, bar, int(pattern["bars"]), int(pattern.get("steps_per_bar", STEPS_PER_BAR))
+    )
+    per = found["beats_per_bar"]
+    start, end = (bar - 1) * per, (bar - 1 + old_bars) * per
+    in_way = found["blocked"]
+    return len(in_way) == 1 and abs(in_way[0]["start"] - start) < 1e-6 and abs(in_way[0]["end"] - end) < 1e-6
+
+
+def write(desk: Desk, cmd: Command) -> Reply:
+    """Make the span hold exactly this pattern: {"track", "bar", "pattern": {"bars", "steps_per_bar"?, "rows":
+    [{"pitch", "name"?, "steps", "lengths"?}], "length"?, "swing"?}}. For what is not one step: swing, clearing a
+    sound or the whole pattern, and another length. With "from_bars" the pattern takes the place of the clip of
+    that many bars at "bar" (1 bar becomes 2: the clip is deleted and a longer one made), when that clip is all
+    that is in the way. The answer is what `steps.read` gives of the span after the write ({"pattern", "clip",
+    "hash", "off_grid", "blocked", "beats_per_bar"}) and "created"; 409 with "blocked" when clips are in the way
+    (nothing has changed)."""
+    track, bar = the_track(cmd.args), whole(cmd.args, "bar")
+    pattern = cmd.args.get("pattern")
+    if not isinstance(pattern, dict):
+        raise BadRequest("the body needs 'pattern': {bars, rows: [{pitch, steps}], length?, swing?}")
+    old_bars = whole(cmd.args, "from_bars") if "from_bars" in cmd.args else None
+    with asking():
+        checked = live_steps.check(pattern)
+        bars = checked["bars"]
+        took = None  # the clip of the old length, deleted to make room
+        if old_bars is not None and old_bars != bars and replaces(desk, track, bar, checked, old_bars):
+            took = live_steps.erase(desk.conn, track, [bar], old_bars)["erased"]
+        did = plain(live_steps.write(desk.conn, track, bar, checked))
+        if "error" in did and took:  # it should not happen: the old clip goes back where it was
+            live_steps.restore(desk.conn, track, bar, old_bars or bars, took[0]["notes"], took[0]["name"] or None)
+    if (refused := in_the_way(did)) is not None:
+        return refused
+    with desk.lock:
+        desk.steps_swing[(track, bar, bars)] = checked.get("swing", 0.0)
+    edited(
+        desk, (track, bar, max(bars, old_bars or 0)), "write", source_of(cmd.args), clips=bool(did["created"] or took)
+    )
+    return 200, {
+        "ok": True,
+        "track": track,
+        "bar": bar,
+        "bars": bars,
+        "pattern": did["pattern"],
+        "clip": did["clip"],
+        "hash": did["hash"],
+        "off_grid": did["off_grid"],
+        "blocked": did["blocked"],
+        "beats_per_bar": did["beats_per_bar"],
+        "created": did["created"],
+    }
 
 
 def bar_list(args: Any, name: str) -> list[int]:
@@ -482,6 +580,8 @@ COMMANDS = {
     "steps.read": read,
     "steps.kits": kits,
     "steps.toggle": toggle,
+    "steps.set": set_step,
+    "steps.write": write,
     "steps.paint": paint,
     "steps.erase": erase,
     "steps.new_track": new_track,

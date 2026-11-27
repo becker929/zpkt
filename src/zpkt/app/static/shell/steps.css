@@ -13,6 +13,9 @@
 .st-bar .sn b{overflow:hidden;text-overflow:ellipsis}
 .st-bar .sn .cd{display:inline-block;width:10px;height:10px;border-radius:50%;flex:none}
 .st-bar .key svg.back{transform:rotate(180deg)}
+.st-bar .sp{flex:1}
+.st-bar .seg .key{min-width:44px;padding:0 6px;font:700 14px ui-monospace,Menlo,monospace}
+@media (max-width:699px){.st-bar{gap:4px}.st-bar .st-barn{font-size:13px;min-width:56px;padding:5px 3px}}
 .st-barn{font:700 14px ui-monospace,Menlo,monospace;min-width:62px;text-align:center;white-space:nowrap;border-radius:8px;padding:5px 6px}
 /* clips are in the way of this bar: the bar says so, and its pads take no touch */
 .st-barn[data-blocked]{color:var(--bad);outline:1.5px solid var(--bad);outline-offset:-1.5px;background:repeating-linear-gradient(135deg,var(--well) 0 4px,transparent 4px 8px)}
@@ -38,6 +41,12 @@
 .st-head{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:20px}
 .st-head b{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .st-ml .tag{line-height:12px}
+/* the knobs: Velocity and Length of the step in hand (and of the next ones), the pattern's Swing */
+.st-knobs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;justify-items:center}
+.st-knobs .mc{max-width:96px}
+.st-knobs .mc.knob .w{flex:0 0 46px;height:46px;min-height:44px}
+.st-knobs .mc .v{font-size:13px;line-height:16px;height:16px}
+.st-knobs .mc .l{font:10.5px/13px ui-monospace,Menlo,monospace;height:13px;color:var(--mute);opacity:1;display:block;white-space:nowrap}
 .st-pads{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:4px}
 .st-pad{aspect-ratio:1;min-width:0;margin:0;padding:2px 4px;border:1px solid var(--zc-line);border-radius:9px;background:linear-gradient(var(--z-key1),var(--z-key2));box-shadow:0 2px 0 var(--z-keyedge);
   color:var(--mute);font:10px ui-monospace,Menlo,monospace;display:flex;align-items:flex-end;justify-content:flex-start;cursor:pointer;position:relative}
@@ -48,6 +57,8 @@
 .st-pad:active{transform:translateY(1.5px);box-shadow:0 .5px 0 var(--z-keyedge)}
 .st-pad:disabled{opacity:.4;cursor:default;transform:none}
 .st-pad:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+/* the step touched last: the one the knobs change */
+.st-pad.last::after{content:"";position:absolute;top:4px;right:4px;width:6px;height:6px;border-radius:50%;background:var(--zs-on)}
 /* the step under Live's playhead, in the playhead's own colour */
 .st-pad.ph{outline:3px solid var(--pin);outline-offset:1px;z-index:1}
 #steps[data-loading] :is(.st-ov,.st-ml){opacity:.5;pointer-events:none}
