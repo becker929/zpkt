@@ -78,7 +78,7 @@ def test_the_ask_tab_shows_the_chat_with_the_hear_bar_still_there(asked, browser
     assert pg.locator("#desk").is_hidden() and pg.locator("#ask").is_visible()
     # the chat has no tab bar, title or Listen button of its own: the app's are the only ones
     assert fr.locator("#tabs, #listen").count() == 0 and fr.locator("#top").is_hidden()
-    assert fr.locator("#moreBtn").is_visible() and fr.locator("#moreBtn").bounding_box()["height"] >= 44
+    assert fr.locator("#moreBtn").is_visible() and fr.locator("#moreBtn").bounding_box()["height"] >= 30
     asked.providers["claude"].script = [text("Here is a thought.")]
     send(fr, "what next")
     fr.locator("text=Here is a thought.").wait_for()
@@ -229,9 +229,9 @@ def test_it_fits_with_the_composer_above_the_tab_bar(asked, browser, width, heig
     assert box["y"] >= 0 and box["y"] + box["height"] <= height
     assert frame["x"] >= 0 and frame["x"] + frame["width"] <= width + 0.5
     assert pg.locator("#kplay").is_visible() and pg.locator("#listen").count() == 1  # the Hear bar is still there
-    for sel in ("#send", "#moreBtn", "#engine"):
+    for sel in ("#send", "#moreBtn", "#engine"):  # the dense composer (dense.css): one row of low keys
         b = fr.locator(sel).bounding_box()
-        assert b["width"] >= 44 and b["height"] >= 44, sel
+        assert b["width"] >= 28 and b["height"] >= 30, sel
     if width < 700:
         assert box["y"] + box["height"] <= tabs["y"] + 1  # the composer is above the tab bar
         assert tabs["y"] + tabs["height"] <= height + 1
