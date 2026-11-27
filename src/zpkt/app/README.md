@@ -577,6 +577,13 @@ pages (`contrib/mixdesk/desk.json`) and a made surface.
 - **An empty desk** (every page archived) is a state, not a fault: the map is drawn with all 20 slots quiet and
   the title row holds the one way to a surface, a key that goes to Ask. The transport, History and the Song go on
   working.
+- **A wide window** (Anthony, 27 November 2026: "It's all too spread out and empty in desktop now"). From 1100 px
+  the app is one console in the middle of the window: it stops growing at 1480 px, the surface is drawn larger
+  (`controls.css`, from 700 px of height) and stands in the middle of its column. With a mouse (`hover:hover` and
+  `pointer:fine`) the list of surfaces and History are low rows, 30 to 32 px, so more of each is on screen; touch
+  at that width keeps the 44 px keys. A surface chosen in the left bar while Song, Monitor or Ask shows brings up
+  the Desk. In Ask the text box has the whole row with the send key; the agent and the attach keys are a low row
+  under it, on a phone too (`ask/zpkt/dense.css`).
 - **The paging row** (under 1100 px; wider, the list of Pages is the side column) is the last row of the Desk:
   the page before, "13 / 15", the page after, and the face switch. One step is one MiniLab page, and the count is
   of MiniLab pages: a surface that takes two is two steps under one title, and has no buttons of its own.
@@ -739,13 +746,6 @@ The page makes no sound: a tap writes a note into Live's clip, and Live plays it
   a gesture (64 bars at most); with Erase lit the same gesture is `steps.erase`. The strip shows the pattern small,
   the track, and Steps, Erase and Paint (lit: a tap ends painting). The ruler, the loop and the playhead stay.
 - **Nothing scrolls**, at 375 x 812, 390 x 664 and 1200 x 800; keys are 44 px, the pads 38 px or more on a phone.
-- **A wide window** (Anthony, 27 November 2026: "It's all too spread out and empty in desktop now"). From 1100 px
-  the app is one console in the middle of the window: it stops growing at 1480 px, the surface is drawn larger
-  (`controls.css`, from 700 px of height) and stands in the middle of its column. With a mouse (`hover:hover` and
-  `pointer:fine`) the list of surfaces and History are low rows, 30 to 32 px, so more of each is on screen; touch
-  at that width keeps the 44 px keys. A surface chosen in the left bar while Song, Monitor or Ask shows brings up
-  the Desk. In Ask the text box has the whole row with the send key; the agent and the attach keys are a low row
-  under it, on a phone too (`ask/zpkt/dense.css`).
 
 The commands are `steps_commands.py`. The reads are anyone's; the others are moves, so the bus holds them to the
 page's set and the lock and refuses them from an agent. None reads or writes a monitor track ("mon ...").
