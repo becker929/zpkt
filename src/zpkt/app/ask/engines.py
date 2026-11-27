@@ -21,6 +21,8 @@ checks each batch whole and keeps it as one History row that one undo takes back
 `propose_live`, is the other half of that decision: structure and code are ask first. It carries its own question,
 in every mode and for both engines: the app shows the batch as a card in the chat and runs it only after the
 person's tap (zpkt.app.propose, tools.py). That question is the app's, not the engine's permission prompt.
+An ability (`ability_<name>`: code the person answered with "Always" on such a card, zpkt.app.abilities) is one
+more tool each. It runs in every mode with no question at all: that tap was the standing yes.
 """
 
 from __future__ import annotations

@@ -5,7 +5,8 @@
         {"add": "Saturator", "track": "Kick bus", "at": 0},
         {"set": "Kick bus/Saturator/Drive", "to": 6.0},
         {"device": "desk Glue", "track": "Kick bus", "on": false},
-        {"move": "desk EQ", "track": "Kick bus", "to": 2}]}
+        {"move": "desk EQ", "track": "Kick bus", "to": 2},
+        {"use": "route_track_to_return", "args": {"track": "kick", "to": "Drive"}}]}
 
 This is the one move an agent may make with no word of yours (zpkt.app.effects, AGENT_MAY), and all it can do is
 this: set values (the state keys and raw numbers `desk.state` gives), add an audio effect to an existing track,
@@ -13,7 +14,13 @@ switch a device on or off, and move a device along its chain. It cannot remove a
 routing or clips, or run code: those are `live.propose` (zpkt.app.propose), which shows the batch to you and runs
 it only after your tap. That command is built on this one: its steps are read by its own reader, checked by `check`
 here (which also knows a removed device, a new track and a code step, the three kinds `read_step` never lets in),
-and run by `run` here with three more runners.
+and run by `run` here with more runners.
+
+A `use` step runs an ability: code you allowed for good with "Always" on a proposal's card (zpkt.app.abilities).
+That tap is the standing yes, so the step needs no word here. It is checked with the batch (the ability is there,
+the arguments fit its parameters, the rails), runs in its place among the other steps as one call to Live
+(zpkt.app.coderun), and History treats it as code: undo does not take it back, unless the ability only reads, which
+leaves nothing to take back.
 
 The rules, in the order they act:
 
@@ -41,7 +48,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from zpkt.app import effects
+from zpkt.app import abilities, coderun, effects
 from zpkt.app.bus import BadRequest, Bus, Command, Reply
 from zpkt.app.history import left_by, same
 from zpkt.live import chain, describe, monitor_tracks, page_layout
@@ -56,10 +63,11 @@ if TYPE_CHECKING:
 KIND = "live.change"
 MAX_STEPS = 40
 MAX_ADDS = 8  # a load takes Live's browser a second or two: eight is already a long ask
+MAX_USES = 8  # abilities run in one batch: each is a call to Live
 WHY_MAX = 80
 # Main's devices that are the desk's own: its mix chain (bypassed while a monitor track plays), the capture that
 # sends Live's sound to the page, and the spectrum's meter.
-RAILED_ON_MAIN = (*monitor_tracks.MAIN_DEVICES, "zpkt listen", "zpkt desk meter")
+RAILED_ON_MAIN = (*monitor_tracks.MAIN_DEVICES, *coderun.ONLY_ON_MAIN)
 FAILED = 502  # a step failed in Live after the checks passed: part of the batch may be done
 
 
@@ -72,8 +80,8 @@ class Step:
     """One step of a batch, as checked. `n` counts from 1, as the problems name it."""
 
     n: int
-    op: str  # "set", "add", "move"; from live.propose only (zpkt.app.propose): "remove", "track", "code"
-    track: str  # the track the step is on; track: the new track's name; code: ""
+    op: str  # "set", "add", "move", "use"; from live.propose only (zpkt.app.propose): "remove", "track", "code"
+    track: str  # the track the step is on; track: the new track's name; code, use: ""
     words: str  # the step as the reply names it: set "Kick bus/volume"
     key: str = ""  # set: the state key
     to: float = 0.0  # set: the raw value; move: the index
@@ -83,6 +91,12 @@ class Step:
     kind: str = ""  # track: audio, midi or return
     code: str = ""  # code: the Python for Live
     does: str = ""  # code: the sentence that says what it does
+    name: str = ""  # code: the name it would be kept under as an ability (zpkt.app.abilities); use: the ability
+    params: abilities.Params = field(default_factory=dict)  # code, use: the declared parameters
+    args: dict[str, Any] = field(default_factory=dict)  # code, use: this run's values for them
+    program: str = ""  # code, use: the text of the one call to Live, once checked (zpkt.app.coderun)
+    uses: list[str] = field(default_factory=list)  # code, use: the abilities sent along with it
+    reads: bool = False  # code, use: it only reads, and so does all it uses
 
 
 # ---- reading the ask -----------------------------------------------------------------------------------------------
@@ -103,13 +117,20 @@ def read_step(n: int, step: Any) -> Step | str:
     """One step as a Step, or what is wrong with its shape."""
     if not isinstance(step, dict):
         return 'a step is an object: {"set": key, "to": number}, {"add": device, "track": name}, ...'
-    kinds = [k for k in ("set", "add", "device", "move") if k in step]
+    kinds = [k for k in ("set", "add", "device", "move", "use") if k in step]
     if len(kinds) != 1:
-        return 'a step has exactly one of "set", "add", "device" or "move"'
+        return 'a step has exactly one of "set", "add", "device", "move" or "use"'
     kind = kinds[0]
     name = _text(step, kind)
     if name is None:
         return f'"{kind}" must be text'
+    if kind == "use":
+        if not abilities.NAME.match(name):
+            return f'use "{name}": an ability\'s name is {abilities.NAME_RULE} (without "{abilities.TOOL_PREFIX}")'
+        args = step.get("args")
+        if args is not None and not isinstance(args, dict):
+            return f'use "{name}": "args" is an object, a value for each of its parameters'
+        return Step(n, "use", "", f'use "{name}"', name=name, args=dict(args or {}))
     if kind == "set":
         to = step.get("to")
         if isinstance(to, bool):
@@ -168,6 +189,9 @@ def read(args: Any, reader: Callable[[int, Any], Step | str] = read_step) -> tup
     adds = sum(1 for s in out if s.op == "add")
     if adds > MAX_ADDS:
         problems.append(f"{adds} devices added is more than {MAX_ADDS} in one batch: send the rest as a second batch")
+    uses = sum(1 for s in out if s.op == "use")
+    if uses > MAX_USES:
+        problems.append(f"{uses} abilities used is more than {MAX_USES} in one batch: send the rest as a second batch")
     return " ".join(str(why or "").split())[:WHY_MAX], out, problems
 
 
@@ -182,6 +206,8 @@ def base_name(label: str) -> str:
 
 def railed(step: Step) -> str | None:
     """Why the rails hold this step, or None. A code step is not looked at here: zpkt.app.propose screens it."""
+    if step.op in ("code", "use"):
+        return None
     if step.op == "track":
         if step.track.casefold().startswith(monitor_tracks.PREFIX):
             return (
@@ -243,15 +269,16 @@ def check(desk: Desk, steps: list[Step]) -> tuple[list[str], dict[str, Descripti
     """The problems Live's own names and ranges give, and the descriptions of the values to be set. A few short
     reads: the chains of the tracks named, the browser for each effect, the values' ranges. The steps are walked in
     order on a picture of the chains, so a step may rely on a device or a track an earlier step makes, and may not
-    name a device an earlier step removes. A code step is passed over: nothing here can say what it will do, so no
-    later step may rely on it."""
+    name a device an earlier step removes. A code step and a `use` step are passed over on that picture: nothing
+    here can say what they will do, so no later step may rely on them. They are made ready to send (`ready`)."""
     problems: list[str] = []
     live_steps = []
+    library = desk.abilities.library() if any(s.op in ("code", "use") for s in steps) else {}
     for s in steps:
-        why = railed(s)
+        why = railed(s) or (ready(s, library) if s.op in ("code", "use") else None)
         if why:
             problems.append(f"step {s.n} ({s.words}): {why}")
-        elif s.op != "code":
+        elif s.op not in ("code", "use"):
             live_steps.append(s)
     with_chain = [s for s in live_steps if s.op != "set" or s.device]
     chains = chain.look(desk.conn, [s.track for s in with_chain])
@@ -320,6 +347,28 @@ def check(desk: Desk, steps: list[Step]) -> tuple[list[str], dict[str, Descripti
             problems.append(f"step {s.n} ({s.words}): {why}")
     problems.sort(key=lambda p: int(p.split()[1].rstrip(":")))
     return problems, found
+
+
+def ready(s: Step, library: dict[str, dict[str, Any]]) -> str | None:
+    """Make a code step or a `use` step ready to send (its `program`, what it `uses`, whether it only `reads`), or
+    say why it cannot be. A `use` step takes its code and parameters from the ability it names."""
+    if s.op == "use":
+        a = library.get(s.name)
+        if a is None:
+            have = ", ".join(sorted(library)) or "none yet"
+            return f'there is no ability "{s.name}" (the abilities: {have}). Propose its code with propose_live'
+        if why := abilities.args_problem(a["params"], s.args):
+            return why
+        s.args = abilities.typed(a["params"], s.args)
+        if why := coderun.screened_args(s.args):
+            return why
+        s.code, s.does, s.params = a["code"], a["does"], a["params"]
+        s.words = f"use {abilities.call_words(s.name, s.args)}"
+    made = coderun.prepare(s.code, s.args, library, top=s.name)
+    if isinstance(made, str):
+        return made
+    s.program, s.uses, s.reads = made.program, made.uses, made.reads
+    return None
 
 
 # ---- running -------------------------------------------------------------------------------------------------------
@@ -392,7 +441,38 @@ def _move_step(desk: Desk, batch: Batch, s: Step) -> None:
         raise StepFailed(f"Live put the device at index {now}, not {int(s.to)}")
 
 
-RUNNERS: dict[str, Runner] = {"add": _add, "move": _move_step}
+def _code(desk: Desk, batch: Batch, s: Step) -> None:
+    """Send a code step, or the code of the ability a `use` step names: one call. It is kept in the entry as
+    something undo leaves, as soon as it was sent, also when Live reported an error (part of it may have run).
+    An ability that only reads leaves nothing in the entry."""
+    used = s.op == "use"
+    words = f"Ran {abilities.call_words(s.name, s.args)}" if used else s.does
+    kept: dict[str, Any] = {"op": "code", "does": s.does, "code": s.code, "words": words}
+    for key, value in (("args", s.args), ("uses", s.uses), ("ability", s.name if used else "")):
+        if value:
+            kept[key] = value
+    broken = {**kept, "failed": True, "words": f"{words} (Live reported an error: part of it may have run)"}
+    record = not (used and s.reads)
+    try:
+        res = desk.conn.execute(s.program)
+    except (LiveError, OSError):
+        if record:
+            desk.history.change_stays(batch.entry, broken)  # sent, and no answer: it may have run
+        raise
+    ok = res.status == "ok"
+    if used:
+        desk.abilities.ran(s.name)
+    if record:
+        desk.history.change_stays(batch.entry, kept if ok else broken)
+    told = {"step": s.n, "ok": ok, "result": coderun.brief(res.result)}
+    batch.extra.setdefault("ran", []).append({**told, "ability": s.name} if used else told)
+    if not ok:
+        may = ", and part of the code may have run" if record else ""
+        raise StepFailed(f"Live reported an error{may}: {res.error or 'no message'}")
+
+
+# "code" is here for live.propose (zpkt.app.propose): the reader of live.change never lets a code step in.
+RUNNERS: dict[str, Runner] = {"add": _add, "move": _move_step, "use": _code, "code": _code}
 
 
 def count_words(entry: dict[str, Any]) -> str:
@@ -424,13 +504,19 @@ def run(
 ) -> Reply:
     """Run a batch that passed its checks: save a version, run the steps in order (each its own short call, by its
     kind's runner), stop at the first that fails, and answer small. One History entry, whatever was done."""
-    todo = any(s.op != "set" or s.later or not same(found[s.key]["now"][1], s.to) for s in steps)
+    todo = any(
+        (s.op == "use" and not s.reads)  # an ability that only reads needs no version before it
+        or s.op not in ("set", "use")
+        or (s.op == "set" and (s.later or not same(found[s.key]["now"][1], s.to)))
+        for s in steps
+    )
     batch = Batch(desk.history.new_change(cmd.who, why, cmd.group))
     entry = batch.entry
     done, failed = 0, None
-    if todo:
-        desk.monitor.leave_pin()  # a change made while the Pin is heard starts from Now
-        desk.version_before(cmd.group or kind)
+    if todo or any(s.op == "use" for s in steps):
+        if todo:
+            desk.monitor.leave_pin()  # a change made while the Pin is heard starts from Now
+            desk.version_before(cmd.group or kind)
         for s in steps:
             try:
                 if s.op == "set":

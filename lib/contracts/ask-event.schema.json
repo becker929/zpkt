@@ -480,7 +480,7 @@
     },
     {
       "title": "permission",
-      "description": "An agent in Ask-first mode waits for one of these options.",
+      "description": "An agent waits for one of these options: in Ask-first mode before an edit or a command, and for a batch that changes Live's structure or runs code (tool.kind \"propose_live\": tool.title, tool.steps; the options are yes, no and, when there is code to keep, always).",
       "type": "object",
       "properties": {
         "type": {
@@ -556,6 +556,85 @@
         "type",
         "id",
         "answered"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "title": "proposal",
+      "description": "What came of a batch that waited for the person's tap (propose_live), for the card of the `permission` event with the same id.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "proposal"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "t": {
+          "type": "integer",
+          "description": "When it happened, milliseconds."
+        },
+        "id": {
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "done",
+            "failed",
+            "refused",
+            "declined",
+            "unanswered",
+            "stopped"
+          ]
+        },
+        "done": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "How many steps ran."
+        },
+        "step": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "failed: the step that failed."
+        },
+        "note": {
+          "type": "string",
+          "description": "failed, refused: why, in a line."
+        },
+        "saved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "After Always: the abilities kept, by name."
+        },
+        "unsaved": {
+          "type": "array",
+          "description": "After Always: the code steps not kept.",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "why"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "why": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "required": [
+        "type",
+        "id",
+        "state"
       ],
       "additionalProperties": true
     }

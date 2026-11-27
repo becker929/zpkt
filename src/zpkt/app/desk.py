@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from zpkt.app import change, deskstate, history, jobs, organize, pages, propose, protocol, surfaces
+from zpkt.app import abilities, change, deskstate, history, jobs, organize, pages, propose, protocol, surfaces
 from zpkt.app.bus import Bus, Command, SetGuard
 from zpkt.app.connections import BUSY_WAIT_S, LiveConnections, bind_udp, open_connections
 from zpkt.app.monitor import Monitor
@@ -123,6 +123,8 @@ class Settings:
     references: tuple[str, ...] = field(default_factory=reference_ids)
     reference_grids: dict[str, tuple[float, float]] = field(default_factory=reference_grids)  # tempo and bars of each
     ask_dir: Path = field(default_factory=default_ask_dir)  # Ask's sessions and files (ZPKT_ASK_DIR)
+    # code you allowed an agent to run for good (zpkt.app.abilities): the rig's abilities_dir
+    abilities_dir: Path = field(default_factory=lambda: config.rig().abilities_dir)
     hosts: tuple[str, ...] = ()  # more Host names the web server answers for (ZPKT_APP_HOSTS); see web.host_allowed
 
     @classmethod
@@ -182,6 +184,7 @@ class Desk:
         self._stale_reload_at = 0.0  # when the supervisor last reloaded a pager Live raised from
         self._analysis: tuple[float | None, dict[str, Any]] = (None, {"sources": {}})
         self.monitor = Monitor(self)
+        self.abilities = abilities.Store(settings.abilities_dir)  # code you allowed an agent to run for good
         self.mounts = Mounts()  # the one seam for an adapter's pages: route sets under a path prefix (Ask, the Song)
         self.bus = self._make_bus()
 

@@ -210,9 +210,9 @@ def test_every_other_move_of_an_agent_is_still_refused(rig, kind, args):
     assert (rig.live.song.tempo, rig.track(KICK).mixer_device.volume.value) == (tempo, vol)
 
 
-def test_only_live_change_is_open_to_an_agent_on_its_own(asked):
+def test_only_live_change_and_what_the_person_kept_are_open_to_an_agent_on_its_own(asked):
     table = asked.rig.desk.bus.table
-    assert {k for k, s in table.items() if s.agent_may} == {"live.change"}
+    assert {k for k, s in table.items() if s.agent_may} == {"live.change", "ability.run"}
     assert table["live.change"].effect == "move" and table["live.change"].guarded and table["live.change"].touches_live
 
 

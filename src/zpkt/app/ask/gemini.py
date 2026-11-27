@@ -27,7 +27,7 @@ from zpkt.app.ask.cost import turn_cost
 from zpkt.app.ask.engines import DEFAULT_MODE, TOOL_SERVER, ToolServer, agent_path
 from zpkt.app.ask.events import Event
 from zpkt.app.ask.provider import AskPermission, Emit, Outcome, Turn
-from zpkt.app.ask.tools import TOOLS
+from zpkt.app.ask.tools import ABILITY_TOOL, TOOLS
 
 # our mode -> Gemini's mode. `build` is Gemini's default too: it asks, and `decide` answers for the person.
 GEMINI_MODE = {
@@ -38,7 +38,10 @@ GEMINI_MODE = {
     "yolo": "yolo",
     "plan": "plan",
 }
-APP_TOOLS = re.compile(r"(?<![A-Za-z])(" + "|".join(re.escape(t.name) for t in TOOLS) + r")(?![A-Za-z_])")
+# The app's tools by name: the five built in, and any ability (ability_<name>), which is a tool like the others.
+APP_TOOLS = re.compile(
+    r"(?<![A-Za-z])(" + "|".join([*(re.escape(t.name) for t in TOOLS), ABILITY_TOOL.pattern]) + r")(?![A-Za-z_])"
+)
 APP_SERVER = re.compile(rf"(?<![A-Za-z]){TOOL_SERVER}(?![A-Za-z])", re.I)
 OWN_KINDS = ("edit", "delete", "move", "execute")  # Gemini's own file and shell tools: never taken for the app's
 MODE_UPDATE = re.compile(r"\[MODE_UPDATE\] (\w+)")

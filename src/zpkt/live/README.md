@@ -38,6 +38,7 @@ the command and a row.
 | Render many variants of a section in one export | `zpkt live kit template ...`, then `zpkt live kit render BATCH KIT` (probe kits: the fast batch-render method) |
 | Try a sound with knobs to turn | `zpkt live panel make --spec ...` (below) |
 | What is on a track's chain? Add an audio effect, move a device, delete one | `zpkt.live.chain`: `look`, `add`, `move`, `delete` (each call short; the app's `live.change` uses them) |
+| Every track and device name of the open set, in one call | `zpkt.live.chain.set_names(live)` (`{"track": [...], "device": [...]}`) |
 | Make a new audio, MIDI or return track | `zpkt.live.newtrack.make(live, "audio", "Parallel")` (short calls: count, make, count, name; the app's `live.propose` uses it) |
 | What would Live show for a value that is not written yet? | `zpkt.live.describe.shown_for(live, [(key, raw), ...])` (one call; "-3.0 dB") |
 | Set values by state key, on a page or not | `zpkt.live.writes.set_keys(live, [[key, raw], ...])` |

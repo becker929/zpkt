@@ -3,7 +3,8 @@
 The names are Zpkt web's, under a prefix, so its page code works here with the prefix changed: sessions (with a
 server-sent stream that replays then follows), messages, stop, rename, delete and undo of a delete, workspaces,
 engines, files an agent points at and attachments. New here: `permission` (answer an
-agent's question), `tool` (an agent's tool call, from its MCP server), `main` (the workspace's one conversation and
+agent's question), `tool` (an agent's tool call, from its MCP server), `tools` and `abilities` (what an agent can
+call now, and the code it may run on its own: as JSON, and `abilities.md` as a page to read), `main` (the workspace's one conversation and
 its archive) and `events` (a long transcript a page of turns at a time). `AskRoutes` is a mount
 (zpkt.app.mounts): the web server hands it every request under the prefix. It writes its answers on the connection
 itself, since some are streams.
@@ -22,7 +23,7 @@ from zpkt.app.ask.engines import DEFAULT_MODE
 from zpkt.app.ask.media import byte_range, resolve_media, save_attachment
 from zpkt.app.ask.service import Ask
 from zpkt.app.ask.store import NoSuchSession, Refused
-from zpkt.app.ask.tools import TOOLS
+from zpkt.app.ask.tools import ABILITY_PREFIX, abilities_markdown
 from zpkt.app.mounts import MountReply, Request
 
 if TYPE_CHECKING:
@@ -141,14 +142,22 @@ class AskRoutes:
                     f.suffix, "application/octet-stream"
                 ),
             )
-        if method == "GET" and api == "/tools":
+        if (
+            method == "GET" and api == "/tools"
+        ):  # the five built in, then one for each ability: as an agent has them now
             return send(
                 {
                     "tools": [
-                        {"name": t.name, "kind": t.kind, "description": t.description, "input": t.schema} for t in TOOLS
+                        {"name": t.name, "kind": t.kind, "description": t.description, "input": t.schema}
+                        for t in ask.gate.tools()
                     ]
                 }
             )
+        if method == "GET" and api in ("/abilities", "/abilities.md"):  # what an agent may run on its own now
+            found, most = ask.gate.abilities()
+            if api.endswith(".md"):
+                return h._send(200, abilities_markdown(found, most).encode(), "text/markdown; charset=utf-8")
+            return send({"abilities": [{**a, "tool": ABILITY_PREFIX + a["name"]} for a in found], "max": most})
         if method == "POST" and api == "/tool":
             b = self._body(h)
             args = b.get("args")

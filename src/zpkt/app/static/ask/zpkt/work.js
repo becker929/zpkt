@@ -42,6 +42,8 @@ export function toolLine(name, params = {}) {
       if (app === 'read_state') return 'looked at the desk';
       if (app === 'read_measurement') return 'read the last measurement';
       if (app === 'change_live') return `changed Live${typeof p.why === 'string' && p.why ? ': ' + first(p.why, 50) : ''}`;
+      const ability = String(name || '').match(/(?:^|[^a-z])ability_([a-z][a-z0-9_]*)/)?.[1];   // code the person allowed for good, run again
+      if (ability) return `ran ${ability}(${first(Object.entries(p).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(', '), 40)})`;
       if (app === 'propose_live') return `asked to change Live${typeof p.why === 'string' && p.why ? ': ' + first(p.why, 50) : ''}`;   // it runs only after the person's tap
       if (app === 'propose_option') return `made a suggestion${typeof p.title === 'string' && p.title ? ': ' + first(p.title, 50) : ''}`;
       const v = ['command', 'file_path', 'path', 'pattern', 'url', 'query', 'prompt'].map((k) => p[k]).find((x) => typeof x === 'string')

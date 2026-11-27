@@ -9,6 +9,7 @@ from zpkt.app import effects
 from zpkt.app.bus import Bus, Command, Spec
 
 READS = {
+    "ability.list",
     "arrangement.read",
     "describe",
     "live.propose.check",
@@ -23,6 +24,7 @@ READS = {
     "state.take",
 }
 MAKES = {
+    "ability.remove",
     "history.checkpoint",
     "monitor.pin",
     "page.draft",
@@ -31,6 +33,7 @@ MAKES = {
     "surface.save",
 }
 MOVES = {
+    "ability.run",
     "history.back",
     "history.redo",
     "history.revert",
@@ -67,7 +70,9 @@ MOVES = {
 # The moves an agent may ask for with no word of the user's. One, by Anthony's decision of 26 November 2026: a batch
 # of value and device steps, checked whole, undone as one (zpkt.app.change). Adding a kind here is a decision.
 # `live.propose` (structure and code) is NOT here: it needs the person's tap (zpkt.app.propose).
-AGENT_MAY = {"live.change"}
+# `ability.run`, by his decision of the same day ("an 'Always' button which adds the code to an auto allowed set"):
+# it runs only code the person kept with "Always" on a card, so the word was given before (zpkt.app.abilities).
+AGENT_MAY = {"live.change", "ability.run"}
 
 
 def test_an_agent_may_make_exactly_these_moves_on_its_own(asked):

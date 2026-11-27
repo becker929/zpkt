@@ -74,8 +74,10 @@ app starts, then the set the app opened (`open_set`), or one a caller named and 
   steps that the app checks whole and keeps as one History row (`src/zpkt/app/README.md`, "A batch of changes").
   Every other change needs `approval: "user"`, and an agent cannot send that word; it is yours. In Ask you give it
   with a tap: the agent's `propose_live` tool shows a batch that removes a device, makes a track or runs code as a
-  card in the chat, and the app sends `live.propose` with your word only after "Do it". For an alternative to
-  hear, it makes a page with compare states and you press the pad.
+  card in the chat, and the app sends `live.propose` with your word only after "Do it". "Always" on such a card
+  also keeps its code as an ability, which the agent may run again with new arguments and no card (`ability.run`,
+  the second move it may send on its own); you take that back by removing the ability in Ask. For an alternative
+  to hear, it makes a page with compare states and you press the pad.
 - A coding agent in a terminal runs with `ZPKT_AGENT=1` (Ask sets it for the engines it starts). The `zpkt` command
   is then `agent`, not `cli`, and a `zpkt live` command that changes Live stops before it starts, with or without
   `--direct`, and names the app's `change_live` and `propose_live` tools. Code that only reads still runs, and so does
