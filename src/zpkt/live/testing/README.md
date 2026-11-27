@@ -51,7 +51,9 @@ def test_take(tmp_path):
 ## What it does not do
 
 - No sound, meters, rendering, recording or audio clock. The playhead moves only when a test calls `play_for`.
-- Session view clips (zpkt works in the arrangement), automation envelopes, drum pads, and most plug-in behaviour.
+- Session view clips (zpkt works in the arrangement), automation envelopes, and most plug-in behaviour. A Drum
+  Rack has its 128 pads with their note, name and chains (`"chains": [{"name": "Kick", "note": 36}]`), and no more:
+  nothing can be loaded onto a pad.
 - Live's fader law and some units are not published. Where the fake guesses, `display.py` and `devices.py` say
   GUESS. Tests should depend only on text that zpkt itself parses, not on those guesses.
 - The code runs in the test's process. Modules it puts in `sys.modules` by hand are removed by `close()`.

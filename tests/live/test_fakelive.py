@@ -369,6 +369,40 @@ def test_clips_notes_and_the_transport(live):
     assert isinstance(MidiNoteSpecification(60, 0, 1), MidiNoteSpecification)
 
 
+def test_a_drum_rack_has_128_pads_by_note_and_a_duplicate_is_the_whole_clip():
+    kit = {"device": "Drum Rack", "chains": [{"name": "Kick"}, {"name": "Clap", "note": 39}, {"name": "Rim"}]}
+    spec = {
+        "tracks": [
+            {"name": "Drums", "type": "midi", "devices": [kit, "Instrument Rack"], "clips": [{"start": 0, "length": 4}]}
+        ]
+    }
+    with FakeLive(fake_set(spec)) as fake:
+        pads = "song.tracks[0].devices[0].drum_pads"
+        assert fake.run(f"len({pads})") == 128 and fake.run("len(song.tracks[0].devices[1].drum_pads)") == 0
+        assert fake.run(f"[(p.note, p.name, len(p.chains)) for p in {pads} if len(p.chains)]") == [
+            [36, "Kick", 1],  # chains with no note fill the pads upward from C1, in order
+            [38, "Rim", 1],
+            [39, "Clap", 1],
+        ]
+        assert fake.run(f"[{pads}[35].name, len({pads}[35].chains), {pads}[36].chains[0].name]") == ["B0", 0, "Kick"]
+        fake.run("c = song.tracks[0].arrangement_clips[0]\nc.name = 'a'\nc.start_marker = 1.0\nc.muted = True")
+        fake.run("t = song.tracks[0]\nt.duplicate_clip_to_arrangement(t.arrangement_clips[0], 8.0)")
+        assert fake.run(
+            "[(c.name, c.start_time, c.start_marker, c.muted) for c in song.tracks[0].arrangement_clips]"
+        ) == [
+            ["a", 0.0, 1.0, True],
+            ["a", 8.0, 1.0, True],
+        ]
+    with pytest.raises(ValueError, match="is not a Drum Rack"):
+        fake_set(
+            {
+                "tracks": [
+                    {"name": "x", "devices": [{"device": "Audio Effect Rack", "chains": [{"name": "c", "note": 36}]}]}
+                ]
+            }
+        )
+
+
 def test_hw002_like_has_the_mix_desks_shape():
     with FakeLive(hw002_like()) as live:
         names = live.run("result = [t.name for t in song.tracks]")
