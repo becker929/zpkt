@@ -29,7 +29,9 @@ The rules, in the order they act:
    problem is listed in one 400, in words the asker can act on. A value on a device the same batch adds cannot be
    checked yet: it is checked when its step comes.
 2. The rails: never a monitor track ("mon ..."), never Main's desk devices (RAILED_ON_MAIN), and no device is added
-   to or moved on Main (its chain is the desk's: what sits there is heard under every monitor track too). The
+   to or moved on Main while the desk's devices are on it (its chain is then the desk's: what sits there is heard
+   under every monitor track too). A song of its own has none of them, and its Main takes a limiter like any track
+   (the persona walkthrough, 27 November 2026: the mix ended at -20.9 LUFS with no way to put a limiter on Main). The
    wrong-set guard is the bus's, as for every move.
 3. A version (checkpoint) is saved, then the steps run in order, each as its own short call to Live. A step that
    fails stops the batch; the reply says what was done and what was not.
@@ -204,8 +206,9 @@ def base_name(label: str) -> str:
     return name if hash_ and nth.isdigit() else label
 
 
-def railed(step: Step) -> str | None:
-    """Why the rails hold this step, or None. A code step is not looked at here: zpkt.app.propose screens it."""
+def railed(step: Step, main_free: bool = False) -> str | None:
+    """Why the rails hold this step, or None. A code step is not looked at here: zpkt.app.propose screens it.
+    `main_free`: Main carries none of the desk's devices (a song of its own), so devices may go on it."""
     if step.op in ("code", "use"):
         return None
     if step.op == "track":
@@ -219,7 +222,7 @@ def railed(step: Step) -> str | None:
     if step.track.startswith(monitor_tracks.PREFIX):
         return f'"{step.track}" is a monitor track: the app never changes those'
     if live_tracks.is_main(step.track):
-        if step.op in ("add", "move", "remove"):
+        if step.op in ("add", "move", "remove") and not main_free:
             return "no device is added to, moved on or removed from Main: its chain is the desk's own"
         if base_name(step.device) in RAILED_ON_MAIN:
             return f'"{step.device}" on Main is one of the desk\'s own devices: the app never changes those'
@@ -274,8 +277,12 @@ def check(desk: Desk, steps: list[Step]) -> tuple[list[str], dict[str, Descripti
     problems: list[str] = []
     live_steps = []
     library = desk.abilities.library() if any(s.op in ("code", "use") for s in steps) else {}
+    main_free = False
+    if any(live_tracks.is_main(s.track) and s.op in ("add", "move", "remove") for s in steps):
+        on_main = chain.look(desk.conn, ["Main"]).get("Main") or []
+        main_free = not any(base_name(d) in RAILED_ON_MAIN for d in on_main)
     for s in steps:
-        why = railed(s) or (ready(s, library) if s.op in ("code", "use") else None)
+        why = railed(s, main_free) or (ready(s, library) if s.op in ("code", "use") else None)
         if why:
             problems.append(f"step {s.n} ({s.words}): {why}")
         elif s.op not in ("code", "use"):

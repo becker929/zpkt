@@ -210,15 +210,18 @@ class SessionStore:
             self.index = [s for s in self.index if s["id"] != sid]
             self.save()
 
-    def main(self, workspace: str, cwd: str) -> Record:
-        """The workspace's one conversation: the session marked `main`, else a new, empty one titled "Ask". Older
+    def main(self, workspace: str, cwd: str, song: str = "") -> Record:
+        """The workspace's one conversation for a song: the session marked `main` for that song, else a new, empty one
+        titled "Ask". `song` "" is the desk's own sets (HW002) and every main session from before songs. Older
         sessions are never taken for it; they are the archive."""
         with self.lock:
             mine = [s for s in self.index if not s.get("deleted") and self._in(s, workspace, cwd)]
-            found = next((s for s in mine if s.get("main")), None)
+            found = next((s for s in mine if s.get("main") and s.get("song", "") == song), None)
             if found is None:
                 found = self.create(MAIN_TITLE, workspace, cwd)
                 found["main"] = found["fresh"] = True
+                if song:
+                    found["song"] = song
                 self.save()
             return found
 

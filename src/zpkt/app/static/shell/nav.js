@@ -93,5 +93,9 @@
     if (window.visualViewport) for (const ev of ["resize", "scroll"]) window.visualViewport.addEventListener(ev, fit);
     window.addEventListener("resize", fit);
   }
-  window.zpktNav = {set, inPlace, ask};
+  /** Another song is open (zpkt.app.songs): the chat shows that song's conversation. Not while the agent works. */
+  function reloadAsk() {
+    if (frame && !working) frame.src = "/app/ask/?embedded=1";
+  }
+  window.zpktNav = {set, inPlace, ask, reloadAsk};
 })();

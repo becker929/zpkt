@@ -309,3 +309,17 @@ def test_every_turn_is_told_which_song_is_open_now(tmp_path):
     assert "[open: Midnight Signal]" in second
     assert "third" in third and "[open:" not in third
     assert ask.store.replay(s["id"])[0]["text"] == "first"  # the person's words stay as they were typed
+
+
+def test_each_song_has_its_own_main_conversation(tmp_path):
+    """A new song opens on an empty chat; the desk's own sets ("" ) keep the conversation from before songs."""
+    ask = make(tmp_path, claude=ScriptedProvider("claude", []))
+    song = [""]
+    ask.song = lambda: song[0]
+    old = ask.main("work")
+    song[0] = "song_amber_drift"
+    new = ask.main("work")
+    assert new["id"] != old["id"] and new.get("song") == "song_amber_drift"
+    assert ask.main("work")["id"] == new["id"]  # the same song: the same conversation
+    song[0] = ""
+    assert ask.main("work")["id"] == old["id"]  # back on HW002: its own chat again
