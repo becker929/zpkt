@@ -29,11 +29,7 @@ SETS = Path(os.environ.get("WT_SETS", "~/Music/zpkt/sets")).expanduser()
 MODEL = os.environ.get("WT_MODEL", "claude-sonnet-5-5")
 PY = sys.executable
 # every built-in tool but ToolSearch (which only loads the wt tools): the persona works through the browser alone
-BLOCKED = (
-    "Bash Read Write Edit Glob Grep WebFetch WebSearch Task Agent NotebookEdit TodoWrite Skill Artifact "
-    "ArtifactComments ArtifactData CronCreate CronDelete CronList DesignSync EnterWorktree ExitWorktree ListAgents "
-    "McpTaskCheck PushNotification RemoteTrigger ReportFindings ScheduleWakeup SendMessage TaskStop Workflow"
-).split()
+BLOCKED = ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "WebFetch", "WebSearch", "Task", "Agent", "NotebookEdit", "TodoWrite", "Skill", "Artifact", "ArtifactComments", "ArtifactData", "CronCreate", "CronDelete", "CronList", "DesignSync", "EnterWorktree", "ExitWorktree", "ListAgents", "McpTaskCheck", "PushNotification", "RemoteTrigger", "ReportFindings", "ScheduleWakeup", "SendMessage", "TaskStop", "Workflow"]
 
 LEGS = {
     1: "Recipe steps 1 and 2: make a new song of your own (call it something you would call a track), set it up "
