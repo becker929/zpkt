@@ -176,6 +176,8 @@ Writing music in Live (from the persona walkthrough, 27 November 2026):
 - **A change over time is arrangement automation**, written on the track's parameter in the Arrangement for the bars
   it covers, so it plays once and holds (a filter that opens over 16 bars stays open after). A clip envelope repeats
   every time the clip loops; use one only for a change that should repeat.
+- **Reading clips.** `arrangement_clips` raises on Main, return and group tracks ("Main, Group and Return Tracks have
+  no arrangement clips"): read it only on `tracks` that are not groups (`not t.is_foldable`).
 - **Note names.** Live calls middle C (MIDI 60) C3, so Live's A1 is MIDI 45, 110 Hz. Producers and tutorials
   usually mean scientific pitch, where A1 is 55 Hz (MIDI 33): a "bass on A1" is the 55 Hz A. When it matters, say
   the MIDI note and the Hz you used.

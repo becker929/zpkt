@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import os
 import shutil
 import subprocess
@@ -87,10 +88,12 @@ def restore(checkpoint: Path, leg: int) -> str:
     """Copy the checkpoint's song to a new song file, put it in the app's list and open it in Live. Its name."""
     meta = json.loads((checkpoint / "checkpoint.json").read_text())
     src = checkpoint / f"{meta['song']}.als"
-    name = f"{meta['song']}_r{time.strftime('%H%M%S')}"
+    base = re.sub(r"(_r\d{6})+$", "", meta["song"])  # a copy of a copy is named after the song, not after the copy
+    name = f"{base}_r{time.strftime('%H%M%S')}"
     shutil.copy2(src, SETS / f"{name}.als")
     index = json.loads((SETS / "songs.json").read_text())
     title = next((s["title"] for s in index["songs"] if s["name"] == meta["song"]), meta["song"])
+    title = re.sub(r"( \(from [^)]*\))+$", "", title)
     index["songs"].append({"name": name, "title": f"{title} (from {checkpoint.name})", "desk": False})
     (SETS / "songs.json").write_text(json.dumps(index, indent=2) + "\n")
     from zpkt.app.client import AppClient
