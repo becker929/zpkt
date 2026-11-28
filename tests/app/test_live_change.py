@@ -322,3 +322,33 @@ def test_a_main_without_the_desks_devices_takes_one(rig):
     code, reply = run(rig, {"why": "a limiter on Main", "steps": [{"add": "Saturator", "track": "Main"}]})
     assert code == 200, reply
     assert [d.name for d in main.devices][-1].startswith("Saturator")
+
+
+def test_a_track_that_live_renames_is_followed_by_the_steps_after_it():
+    """Live names a default-named track after the instrument loaded on it (1-MIDI becomes 1-Drift): the steps still to
+    come move onto the new name, a set is checked again when it comes, and nothing else is touched."""
+
+    class Conn:
+        def __init__(self) -> None:
+            self.names = ["1-Drift", "2-MIDI", "Kick"]
+
+        def run(self, code):
+            return list(self.names)
+
+    class Desk:
+        def __init__(self) -> None:
+            self.conn = Conn()
+
+    rest = [
+        change.Step(2, "set", "1-MIDI", 'set "1-MIDI/volume"', key="1-MIDI/volume", to=0.5),
+        change.Step(3, "add", "1-MIDI", 'add "Auto Filter" on "1-MIDI"', device="Auto Filter"),
+        change.Step(4, "set", "Kick", 'set "Kick/volume"', key="Kick/volume", to=0.7),
+    ]
+    desk = Desk()
+    now = change.follow_renames(desk, ["1-MIDI", "2-MIDI", "Kick"], rest)
+    assert now == ["1-Drift", "2-MIDI", "Kick"]
+    assert [r.track for r in rest] == ["1-Drift", "1-Drift", "Kick"]
+    assert rest[0].key == "1-Drift/volume" and rest[0].later and rest[1].words == 'add "Auto Filter" on "1-Drift"'
+    assert rest[2].key == "Kick/volume" and not rest[2].later
+    desk.conn.names = ["1-Drift", "Kick"]  # a track went: no guessing which is which
+    assert change.follow_renames(desk, ["1-MIDI", "2-MIDI", "Kick"], rest[2:]) == ["1-Drift", "Kick"]

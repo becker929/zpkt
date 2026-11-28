@@ -301,8 +301,9 @@ def surface_mixer(desk: Desk, cmd: Command) -> Reply:
         }
         for k in range(0, len(names), MIXER_GROUP)
     ]
-    groups.append(
-        {"name": "Main", "controls": [{"target": "Main/volume", "role": "level", "weight": 2, "label": "Main"}]}
+    # Main first, so its fader is on the first MiniLab page (the walkthrough: "No master fader is shown")
+    groups.insert(
+        0, {"name": "Main", "controls": [{"target": "Main/volume", "role": "level", "weight": 3, "label": "Main"}]}
     )
     spec = {"schema": P.SCHEMA, "title": "Mixer", "made_by": "you", "groups": groups}
     return pages.make(desk, dataclasses.replace(cmd, args={"spec": spec, "prompt": "Mixer for this song"}))

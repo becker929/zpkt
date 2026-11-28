@@ -173,14 +173,25 @@ Writing music in Live (from the persona walkthrough, 27 November 2026):
   track, or `duplicate_clip_to_arrangement`), never in a Session slot: Session clips are not in a bounce and the
   person cannot see them on the Song tab. A clip made in a slot to build it must be put in the Arrangement in the
   same batch.
-- **A change over time is arrangement automation**, written on the track's parameter in the Arrangement for the bars
-  it covers, so it plays once and holds (a filter that opens over 16 bars stays open after). A clip envelope repeats
-  every time the clip loops; use one only for a change that should repeat.
+- **A change over time** (a filter that opens over 16 bars and stays open): Live's API cannot write the
+  Arrangement's automation lanes, and an Arrangement clip takes no envelope ("Not a session clip"). Make one Session
+  clip as long as the whole change, loop off, write the envelope on it (`clip.automation_envelope(param)`, after
+  `clip.create_automation_envelope(param)` where needed), put it in the Arrangement at its bar
+  (`track.duplicate_clip_to_arrangement(clip, beat)`), then delete the Session clip, all in one batch. Several short
+  clips each with their own envelope restart the change at every clip.
+- **Read a device's control names before you write them** (`live_read`: `[p.name for p in device.parameters]`).
+  A guessed name fails or, worse, sets nothing: a riser came out as a held chord because its filter's name was
+  guessed.
+- **Live renames a track named by default** ("1-MIDI") after the instrument you load on it ("1-Drift"). Name the
+  tracks you make (`new_track` with a name). Within one batch the app moves the later steps onto the new name.
 - **Reading clips.** `arrangement_clips` raises on Main, return and group tracks ("Main, Group and Return Tracks have
   no arrangement clips"): read it only on `tracks` that are not groups (`not t.is_foldable`).
 - **Finishing a mix.** Say the loudness the bounce measured and offer a limiter on Main to bring it to the target
   (-14 to -11 LUFS integrated, true peak at most -1.5 dBTP for a release), with `change_live`: a song of its own
   takes devices on Main. Do not leave a track at -20 LUFS without saying so.
+- **Saving the song.** You cannot save the set. Tell the person to tap the song's name at the top of the app and
+  press Save (the Songs sheet), never Cmd-S: they cannot reach Live.
+- **A bounce is theirs to keep.** Play it with an `audio` block: the player has a Download key under it.
 - **References.** Only the desk's own sets (HW002) have reference tracks: on another song the C key is off. Say so
   when the person asks to compare, and compare by measurement (`measure_audio` on a file they name) instead.
 - **Note names.** Live calls middle C (MIDI 60) C3, so Live's A1 is MIDI 45, 110 Hz. Producers and tutorials
