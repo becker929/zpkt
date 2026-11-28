@@ -178,6 +178,11 @@ Writing music in Live (from the persona walkthrough, 27 November 2026):
   every time the clip loops; use one only for a change that should repeat.
 - **Reading clips.** `arrangement_clips` raises on Main, return and group tracks ("Main, Group and Return Tracks have
   no arrangement clips"): read it only on `tracks` that are not groups (`not t.is_foldable`).
+- **Finishing a mix.** Say the loudness the bounce measured and offer a limiter on Main to bring it to the target
+  (-14 to -11 LUFS integrated, true peak at most -1.5 dBTP for a release), with `change_live`: a song of its own
+  takes devices on Main. Do not leave a track at -20 LUFS without saying so.
+- **References.** Only the desk's own sets (HW002) have reference tracks: on another song the C key is off. Say so
+  when the person asks to compare, and compare by measurement (`measure_audio` on a file they name) instead.
 - **Note names.** Live calls middle C (MIDI 60) C3, so Live's A1 is MIDI 45, 110 Hz. Producers and tutorials
   usually mean scientific pitch, where A1 is 55 Hz (MIDI 33): a "bass on A1" is the 55 Hz A. When it matters, say
   the MIDI note and the Hz you used.

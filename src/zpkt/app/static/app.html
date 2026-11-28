@@ -596,7 +596,7 @@ function renderBottom() {
   // desk first saw it), C the reference. One of them is heard.
   const hr = S.hear, pinName = hr.pin === "start" ? "the mix as it was first" : hr.pin === "pin" ? "the pinned mix" : cpLabel(hr.pin, baseAt(hr.pin));
   const ab = (what, letter, words, ok) => `<button class="key sm ${hr.hearing === what ? "on" : ""} ${S.asked["hear:" + what] ? "ask" : ""}" data-hear="${what}" aria-pressed="${hr.hearing === what}" aria-busy="${!!S.asked["hear:" + what]}" aria-label="${esc(words)}" ${ok ? "" : "disabled"}>${letter}</button>`;
-  setHtml($("#abgrp"), `<div class="seg" id="abc" role="group" aria-label="Compare">${ab("now", "A", "A: the mix now", true)}${ab("pin", "B", "B: " + pinName, true)}${ab("ref", "C", "C: the reference", Object.keys(st.gains || {}).length > 0)}</div>`);
+  setHtml($("#abgrp"), `<div class="seg" id="abc" role="group" aria-label="Compare">${ab("now", "A", "A: the mix now", true)}${ab("pin", "B", "B: " + pinName, true)}${ab("ref", "C", Object.keys(st.gains || {}).length > 0 ? "C: the reference" : "C: no reference for this song", Object.keys(st.gains || {}).length > 0)}</div>`);
   setHtml($("#hgrp"), `<button class="key sm ${S.hist.can_undo ? "" : "off"}" id="kundo" aria-label="Undo${esc(said(u))}" ${S.hist.can_undo ? "" : "disabled"}>${I("undo")}</button>
     <button class="key sm ${S.hist.can_redo ? "" : "off"}" id="kredo" aria-label="Redo${esc(said(r))}" title="${esc(r ? `${r.label} ${r.value}` : "")}" ${S.hist.can_redo ? "" : "disabled"}>${I("redo")}</button>
     <button class="key sm" id="khist" aria-label="History and checkpoints">${I("hist")}</button>`);

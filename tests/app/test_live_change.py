@@ -312,3 +312,13 @@ def test_the_tool_reaches_the_bus_through_the_ask_gate_as_the_agent(asked):
     code, _ = rig.post("/app/ask/api/tool", {**body, "args": {"why": "again", "steps": [{"set": VOL, "to": 0.3}]}})
     assert code == 200
     assert [e["k"] for e in rig.desk.history.entries] == ["checkpoint", "change", "checkpoint", "change"]
+
+
+def test_a_main_without_the_desks_devices_takes_one(rig):
+    """A song of its own has none of the desk's devices on Main: a limiter may go there like on any track (the
+    persona walkthrough, 27 November 2026: the mix ended at -20.9 LUFS and Main could take no limiter)."""
+    main = rig.track("Main")
+    main._devices = [d for d in main._devices if change.base_name(d.name) not in change.RAILED_ON_MAIN]
+    code, reply = run(rig, {"why": "a limiter on Main", "steps": [{"add": "Saturator", "track": "Main"}]})
+    assert code == 200, reply
+    assert [d.name for d in main.devices][-1].startswith("Saturator")

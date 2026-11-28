@@ -260,7 +260,8 @@ class Desk:
         """The state as the page gets it: a copy, with the loudness match's gains for every reference."""
         state = self.snapshot()
         song = {"name": state.get("set") or self.settings.set_name, **deskstate.song_facts(state)}
-        gains = deskstate.matched_gains(self.analysis()["sources"])
+        # the references (C) and their level match are the desk's own sets'; a song of its own has none yet
+        gains = deskstate.matched_gains(self.analysis()["sources"]) if self.desk_song else {}
         # "open_set" is what Live has in front ("" for a set with no file); "desk_set" the set this desk is for
         return {
             **state,
