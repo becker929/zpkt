@@ -21,6 +21,7 @@ READS = {
     "page.list",
     "render.measure",
     "desk.state",
+    "song.list",
     "state.read",
     "state.take",
     "steps.kits",
@@ -38,6 +39,10 @@ MAKES = {
     "surface.save",
 }
 MOVES = {
+    "song.new",
+    "song.open",
+    "song.save",
+    "song.save_as",
     "ability.run",
     "history.back",
     "history.redo",

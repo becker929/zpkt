@@ -63,6 +63,8 @@ class Monitor:
     def wanted_tracks(self) -> dict[str, tuple[Path, float]]:
         """{monitor track: (its WAV, the beat it starts at)}: A and B at the start, the references at the drop."""
         s = self.desk.settings
+        if not getattr(self.desk, "desk_song", True):  # a song of its own has none of HW002's reference tracks
+            return {}
         want = {"mon A": (s.viz_dir / "A.wav", 0.0), "mon B": (s.viz_dir / "B.wav", 0.0)}
         for ref in s.references:
             want[f"mon {ref}"] = (s.viz_dir / f"{ref}.wav", s.align_beat)

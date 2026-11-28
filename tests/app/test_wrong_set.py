@@ -53,12 +53,13 @@ def test_a_move_that_names_no_set_is_refused_when_live_has_another_than_the_app_
 
 
 def test_every_move_on_the_bus_passes_the_wrong_set_check_but_opening_a_set(asked):
-    """By the table: a move is held by the page's guard or by the job's own; only live.open_set is let through,
-    since it is how to get to the right set."""
+    """By the table: a move is held by the page's guard or by the job's own; only the moves that change which set is
+    open are let through (live.open_set, and the songs: zpkt.app.songs), since they are how to get to the right set.
+    song.save checks itself that Live has the desk's set in front."""
     unguarded = {
         kind for kind, spec in asked.rig.desk.bus.table.items() if effects.EFFECTS[kind] == "move" and not spec.guarded
     }
-    assert unguarded == {"live.open_set"}
+    assert unguarded == {"live.open_set", "song.new", "song.open", "song.save", "song.save_as"}
 
 
 @pytest.mark.parametrize("kind", ["mix.set", "page.arm", "pager.restart", "tempo.set", "transport", "history.undo"])
