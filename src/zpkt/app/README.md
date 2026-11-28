@@ -17,6 +17,8 @@ are libraries and never open one.
 | Two or more settings of the same controls, to switch between while Live plays | pads on a Page | Pages (Compare) |
 | The song in Live: tracks, arrangement clips, locators | `/app/` Song tab | The Song |
 | A new song, save, save as, open another | a tap on the song's name in the Hear bar | Songs |
+| The tempo and the key (Live 12's root and scale) | a tap on the tempo in the Song tab's ruler | Songs |
+| A mixer for a song of its own: every track's volume and Main | Mixer on an empty Desk (`surface.mixer`) | Songs |
 | A drum pattern on 16 pads, painted along its track | `/app/` Song tab: Steps and Paint | Steps |
 | Chat with Claude and Gemini | `/app/ask/` | Ask |
 | Live's sound in the browser | the Listen button; `/app/listen` | Listen |

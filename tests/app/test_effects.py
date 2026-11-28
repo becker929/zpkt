@@ -22,6 +22,7 @@ READS = {
     "render.measure",
     "desk.state",
     "song.list",
+    "key.get",
     "state.read",
     "state.take",
     "steps.kits",
@@ -36,10 +37,12 @@ MAKES = {
     "page.draft",
     "page.make",
     "surface.make",
+    "surface.mixer",
     "surface.save",
 }
 MOVES = {
     "song.new",
+    "key.set",
     "song.open",
     "song.save",
     "song.save_as",

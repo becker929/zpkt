@@ -137,6 +137,12 @@ class Harness:
         self.settle()
         return f"Typed into {name!r}{' and pressed Enter' if submit else ''}. {self.status()}"
 
+    def t_choose(self, name: str, option: str) -> str:
+        loc, _ = self.target("combobox", name, None, 0)
+        loc.select_option(label=option, timeout=5000)
+        self.settle()
+        return f"Chose {option!r} in {name!r}. {self.status()}"
+
     def t_press(self, key: str) -> str:
         self.page.keyboard.press(key)
         self.settle(300)
@@ -266,6 +272,11 @@ TOOLS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "choose",
+        "description": "Pick an option in a drop-down list (a combobox, by its accessible name), by the option's text.",
+        "inputSchema": {"type": "object", "properties": {"name": S, "option": S}, "required": ["name", "option"]},
+    },
+    {
         "name": "press",
         "description": "Press a key on the keyboard (e.g. Enter, Escape, ArrowUp, Space) where the focus is.",
         "inputSchema": {"type": "object", "properties": {"key": S}, "required": ["key"]},
@@ -329,7 +340,7 @@ TOOLS: list[dict[str, Any]] = [
         "inputSchema": {"type": "object", "properties": {"summary": S}, "required": ["summary"]},
     },
 ]
-PAGE_TOOLS = {"open_app", "click", "type", "press", "drag", "click_at"}
+PAGE_TOOLS = {"open_app", "click", "type", "choose", "press", "drag", "click_at"}
 
 
 def main() -> None:
