@@ -85,9 +85,16 @@ class AgentsAdapter:
         agent_commands.register(bus, self.context.desk)
         providers = self.providers or self.default_providers()
         guide = GUIDE.read_text() if GUIDE.exists() else ""
-        self.ask = Ask(self.data_dir, providers, ToolGate(bus), guide, home=self.home, now=self.song_now)
+        self.ask = Ask(
+            self.data_dir, providers, ToolGate(bus), guide, home=self.home, now=self.song_now, song=self.song_key
+        )
         self.routes = AskRoutes(self.ask, self.home)
         self.context.desk.mounts.add(PREFIX, self.routes)
+
+    def song_key(self) -> str:
+        """Each song has its own Ask conversation; the desk's own sets (HW002) keep the one from before songs."""
+        desk = self.context.desk
+        return "" if desk.desk_song else desk.settings.set_name
 
     def song_now(self) -> str:
         """The song Live has open, as the app sees it now: sent with every turn, so an older chat about another song

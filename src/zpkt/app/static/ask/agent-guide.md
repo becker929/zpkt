@@ -167,6 +167,19 @@ or "Don't". Your call waits for the tap, up to 4 minutes, and then the app runs 
   again unless the person asks, and do not look for another way to do it.
 - A step that fails stops the batch: say what was done (`done`) and what was not (`failed`, `not_done`).
 
+Writing music in Live (from the persona walkthrough, 27 November 2026):
+
+- **Arrangement only.** Every clip goes in the Arrangement (`track.create_midi_clip(start_beat, length)` on the
+  track, or `duplicate_clip_to_arrangement`), never in a Session slot: Session clips are not in a bounce and the
+  person cannot see them on the Song tab. A clip made in a slot to build it must be put in the Arrangement in the
+  same batch.
+- **A change over time is arrangement automation**, written on the track's parameter in the Arrangement for the bars
+  it covers, so it plays once and holds (a filter that opens over 16 bars stays open after). A clip envelope repeats
+  every time the clip loops; use one only for a change that should repeat.
+- **Note names.** Live calls middle C (MIDI 60) C3, so Live's A1 is MIDI 45, 110 Hz. Producers and tutorials
+  usually mean scientific pitch, where A1 is 55 Hz (MIDI 33): a "bass on A1" is the 55 Hz A. When it matters, say
+  the MIDI note and the Hz you used.
+
 ```json
 {"why": "parallel drive on the hats",
  "steps": [

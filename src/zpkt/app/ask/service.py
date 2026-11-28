@@ -57,6 +57,7 @@ class Ask:
         home: Path | None = None,
         budgets: dict[str, int] | None = None,
         now: Callable[[], str] | None = None,
+        song: Callable[[], str] | None = None,
     ) -> None:
         self.dir = Path(data_dir)
         self.budgets = compaction.budgets(os.environ, budgets)  # tokens per engine before a compaction
@@ -69,6 +70,7 @@ class Ask:
         gate.ask, gate.tell = self.ask_person, self.store.emit  # a tool that waits for the person's tap (tools.py)
         self.notes = notes_module.Notes(self.store.emit, self.store.save, write_notes)
         self.max_live, self.tool_python = max_live, tool_python
+        self.song = song  # which song's conversation the Ask tab opens on ("" the desk's own sets); None: one for all
         self.now = now  # one line on what Live has open now, sent with every turn (the song may change between turns)
         self.app_url = ""  # where the agents' tool server reaches this app; the routes set it from each request
         self.runs: dict[str, Run] = {}
@@ -95,7 +97,7 @@ class Ask:
         if w is None:
             raise Refused("Unknown workspace")
         self.workspaces.ensure(w)
-        s = self.store.main(w["id"], w["path"])
+        s = self.store.main(w["id"], w["path"], song=self.song() if self.song else "")
         return {**s, "running": self.is_live(s["id"]), "asking": self.permissions.asking(s["id"])}
 
     def archive(self, workspace: str = "") -> list[dict[str, Any]]:

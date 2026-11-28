@@ -124,7 +124,9 @@ def test_the_song_tab_shows_lives_tracks_and_regions_under_the_ruler(browser, ri
     head = pg.locator("#songhead").bounding_box()
     assert head["x"] + head["width"] / 2 == pytest.approx(ruler["x"] + ruler["width"] * 0.5, abs=2)
     # no controls on the lanes; with no MIDI track in the set, the one key that makes a drum track
-    assert pg.locator("#song button:visible").evaluate_all("els => els.map(e => e.dataset.st)") == ["pick"]
+    assert pg.locator("#song button:visible:not(#songtempo)").evaluate_all("els => els.map(e => e.dataset.st)") == [
+        "pick"
+    ]
     assert pg.locator("#song select, #song input").count() == 0
     add_clip(rig, -1, 8.0, 8.0, "new idea")  # a clip made in Live shows without a reload
     pg.wait_for_function("[...document.querySelectorAll('#lanes .rg')].some(e => e.textContent === 'new idea')")
@@ -168,3 +170,21 @@ def test_a_tap_on_a_lane_chooses_the_track_and_its_solo_and_mute_keys_work_on_a_
     lane.locator(".tr").click()  # a second tap lets the track go
     pg.wait_for_function("document.querySelector('#songsel').innerHTML === ''")
     assert errors == []
+
+
+def test_a_tap_on_the_tempo_sets_it(browser, rig):
+    """The tempo in the ruler is a key: it opens the Tempo sheet, and Set changes Live's tempo (the persona
+    walkthrough, 27 November 2026: "No way to set tempo or key on the Song tab")."""
+    pg = browser.new_page(viewport={"width": 1200, "height": 800})
+    pg.goto(rig.url + "/app/#song")
+    pg.wait_for_function(
+        "document.querySelector('#songtempo') && document.querySelector('#songtempo').textContent === '160 · 4/4'"
+    )
+    pg.click("#songtempo")
+    pg.wait_for_selector("#sheet.on #tempoin")
+    assert pg.input_value("#tempoin") == "160"
+    pg.fill("#tempoin", "123")
+    pg.click("#tempoform button[type=submit]")
+    pg.wait_for_function("!document.querySelector('#sheet.on')")
+    assert rig.live.song.tempo == 123
+    pg.close()
