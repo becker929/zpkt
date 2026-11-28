@@ -130,15 +130,18 @@ def load_effect(
     """Load the audio effect `device` onto `track` and wait until the chain has it. Returns the chain's names before
     and after. ChainError when Live's browser has no such effect, or the chain did not grow."""
     before = names(client, track)
-    n = client.run(with_prelude(ADD.format(track=tr(track), device=device)))
     after = before
-    for k in range(LOAD_POLLS):
-        if k:
-            pause(LOAD_POLL_S)
-        after = names(client, track)
-        if len(after) > n:
-            pause(SETTLE_S)
-            return before, after
+    for _attempt in range(2):  # a load right after another can land before Live has the track selected: once more
+        n = client.run(with_prelude(ADD.format(track=tr(track), device=device)))
+        for k in range(LOAD_POLLS):
+            if k:
+                pause(LOAD_POLL_S)
+            after = names(client, track)
+            if len(after) > n:
+                pause(SETTLE_S)
+                return before, after
+        if len(names(client, track)) > len(before):  # it came in late: do not load a second one
+            return before, names(client, track)
     raise ChainError(f"Live did not load {device!r} on {track!r}")
 
 

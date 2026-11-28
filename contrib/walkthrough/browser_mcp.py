@@ -84,15 +84,16 @@ class Harness:
         """The element by role and name (or text), on the page or inside one of the app's frames."""
         if not role and not text:
             raise ValueError("give a role (and name) or a text")
-        for frame in self.frames():
-            if role:
-                loc = frame.get_by_role(role, name=name, exact=False) if name else frame.get_by_role(role)
-            else:
-                loc = frame.get_by_text(text, exact=False)
-            loc = loc.filter(visible=True)
-            n = loc.count()
-            if n:
-                return loc.nth(min(nth, n - 1)), n
+        for exact in (True, False):  # the element whose name is exactly that first, as a person reads a label
+            for frame in self.frames():
+                if role:
+                    loc = frame.get_by_role(role, name=name, exact=exact) if name else frame.get_by_role(role)
+                else:
+                    loc = frame.get_by_text(text, exact=exact)
+                loc = loc.filter(visible=True)
+                n = loc.count()
+                if n:
+                    return loc.nth(min(nth, n - 1)), n
         raise ValueError(f"nothing on the page matches {role or 'text'} {name or text!r}")
 
     # ---- tools ------------------------------------------------------------------------------------------------------

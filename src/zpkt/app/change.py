@@ -500,6 +500,36 @@ def refused(problems: list[str], what: str = "batch") -> Reply:
     }
 
 
+def _track_names(desk: Desk) -> list[str] | None:
+    try:
+        return [str(n) for n in desk.conn.run("result = [t.name for t in song.tracks]")]
+    except (LiveError, OSError, TypeError):
+        return None
+
+
+def follow_renames(desk: Desk, before: list[str] | None, rest: list[Step]) -> list[str] | None:
+    """After a step that may rename a track: Live names a track with a default name ("1-MIDI") after the instrument
+    loaded on it ("1-Drift"), and a later step that names the old one would fail (the persona walkthrough, 27 November
+    2026: "Failed at step 2 ... loading the synth renamed 1-MIDI to 1-Drift"). With as many tracks as before, a name
+    that is gone is the track at its place now, and the steps still to come are moved onto that name. A set on it is
+    checked again when its step comes. Returns the names now (None when Live could not be read)."""
+    now = _track_names(desk)
+    if before is None or now is None or len(now) != len(before):
+        return now
+    renamed = {old: new for old, new in zip(before, now, strict=True) if old != new and old not in now}
+    for r in rest:
+        new = renamed.get(r.track)
+        if new is None:
+            continue
+        r.words = r.words.replace(f'"{r.track}"', f'"{new}"')
+        if r.key.startswith(r.track + "/"):
+            r.key = new + r.key[len(r.track) :]
+        if r.op == "set":
+            r.later = True
+        r.track = new
+    return now
+
+
 def run(
     desk: Desk,
     cmd: Command,
@@ -524,7 +554,8 @@ def run(
         if todo:
             desk.monitor.leave_pin()  # a change made while the Pin is heard starts from Now
             desk.version_before(cmd.group or kind)
-        for s in steps:
+        names = _track_names(desk) if any(s.op in ("code", "use", "add") for s in steps) else None
+        for k, s in enumerate(steps):
             try:
                 if s.op == "set":
                     _set(desk, batch, s, None if s.later else found[s.key])
@@ -534,6 +565,8 @@ def run(
                 failed = {"step": s.n, "what": s.words, "why": str(exc)[:300]}
                 break
             done += 1
+            if names is not None and s.op != "set":
+                names = follow_renames(desk, names, steps[k + 1 :])
     else:
         done = len(steps)
     wrote = [m["key"] for m in entry["moves"]]

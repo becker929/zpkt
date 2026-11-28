@@ -42,7 +42,7 @@ a{color:var(--ink);text-underline-offset:2px}
 .m.user .meta{font-size:12px;color:var(--mute);margin-top:3px}
 .m.user.pending .bubble{opacity:.75}
 .m.model .bubble>:first-child{margin-top:0}.m.model .bubble>:last-child{margin-bottom:0}
-.aud{margin:.7em 0}.aud audio{display:block;width:100%;max-width:420px}.aud figcaption{font-size:12px;color:var(--mute);margin-top:2px;overflow-wrap:anywhere}
+.aud{margin:.7em 0}.aud audio{display:block;width:100%;max-width:420px}.aud figcaption{font-size:12px;color:var(--mute);margin-top:2px;overflow-wrap:anywhere;display:flex;gap:10px;align-items:center;justify-content:space-between}.aud .dl{display:inline-flex;align-items:center;min-height:44px;padding:0 10px;color:inherit;font-weight:600}
 .bubble p{margin:.6em 0}.bubble h1,.bubble h2,.bubble h3,.bubble h4{margin:1em 0 .4em;line-height:1.25}
 .bubble h1{font-size:1.35em}.bubble h2{font-size:1.2em}.bubble h3,.bubble h4{font-size:1.05em}
 .bubble ul,.bubble ol{padding-left:1.4em;margin:.5em 0}
@@ -327,7 +327,11 @@ function inline(s) {
        .replace(/\[([^\]]+)\]\(((?:https?:\/\/|\/app\/)[^\s)]+)\)/g, (_, t, u) => (u.startsWith('/') ? `<a href="${u}">${t}</a>` : `<a href="${u}" target="_blank" rel="noopener noreferrer">${t}</a>`));
   return s.replace(/\u0000(\d+)\u0000/g, (_, i) => '<code>' + codes[i] + '</code>');
 }
-const audioFig = (src, name) => `<figure class="aud"><audio controls preload="none" src="${esc(window.Zpkt ? Zpkt.mediaUrl(src) : src)}"></audio><figcaption>${esc(name || src.split('/').pop().replace(/\.(wav|aiff?|mp3|m4a|flac|ogg)$/i, ''))}</figcaption></figure>`;
+const audioFig = (src, name) => {
+  // the player, and a Download key under it: the person may be away from the Mac (the persona walkthrough, 27 Nov 2026)
+  const url = window.Zpkt ? Zpkt.mediaUrl(src) : src, file = src.split('/').pop();
+  return `<figure class="aud"><audio controls preload="none" src="${esc(url)}"></audio><figcaption><span>${esc(name || file.replace(/\.(wav|aiff?|mp3|m4a|flac|ogg)$/i, ''))}</span><a class="dl" href="${esc(url)}" download="${esc(file)}" aria-label="Download ${esc(file)}">Download</a></figcaption></figure>`;
+};
 /** Where an old transcript had a control panel drawn in the chat: a stub, and plain players for its rendered files. */
 function oldPanel(raw, name) {
   let spec = raw;
