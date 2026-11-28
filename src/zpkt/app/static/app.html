@@ -259,7 +259,7 @@ button#setname{background:none;border:0;color:inherit;font:inherit;font-weight:7
 #lanes .pgs{margin-top:auto;position:relative;z-index:3;background:var(--bg)}
 .ruler .ln{width:64px;flex:none}
 button#songtempo{background:none;border:0;color:inherit;font:inherit;text-align:left;padding:0;cursor:pointer;min-height:44px;margin:-12px 0;text-decoration:underline dotted;text-underline-offset:3px}
-#tempoform input{width:7em;min-width:0}
+#tempoform input{width:7em;min-width:0}#tempoform .kf{display:inline-flex;gap:6px;align-items:center}#tempoform select{min-height:44px;font:inherit;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:inherit;padding:0 6px}
 .ruler .rt{flex:1;min-width:0;height:34px;position:relative;font:10px ui-monospace,Menlo,monospace;color:var(--mute)}
 .ruler .rt .sec{position:absolute;top:14px;height:8px;border-radius:2px;background:var(--k3);box-shadow:inset 2px 0 0 var(--ink)}
 .ruler .rt .sec.s1{background:var(--well)}
@@ -981,7 +981,7 @@ function drawEmptyDesk() {
   S.slots = [];
   const far = S.opening;
   setHtml($("#deskhead"), `<div class="ph2">${far ? `<b id="pagename">${esc(far.title || "")}</b><span class="pill spin" id="pgwait">Loading</span>`
-    : `<b id="pagename"></b><button class="key sm on" id="asknew" data-t="ask"><svg width="18" height="18"><use href="#i-ask"/></svg>New surface</button>`}</div>`);
+    : `<b id="pagename"></b><button class="key sm" id="mixnew" ${S.mixing ? "disabled" : ""}>${S.mixing ? "Making…" : "Mixer"}</button><button class="key sm on" id="asknew" data-t="ask"><svg width="18" height="18"><use href="#i-ask"/></svg>New surface</button>`}</div>`);
   const box = $("#panelbox");
   if (box.__shape !== "empty") { box.__html = null; box.__shape = "empty"; box.innerHTML = MC.panel([], 'id="panel" data-stale'); }
   drawPager();
@@ -1097,20 +1097,37 @@ function renderHist() {
   if (S.sheet === "tempo") renderTempo();
 }
 // ---- Tempo: a tap on the tempo in the Song's ruler sets it (tempo.set) -----------------------------------------------
+const NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 function renderTempo() {
   const sh = $("#sheet");
   if (S.sheet !== "tempo") return;
-  const html = `<div class="shh"><h3>Tempo</h3><button class="key sm" id="tclose" aria-label="Close tempo"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>`
-    + `<form class="cpf" id="tempoform"><input id="tempoin" type="number" inputmode="decimal" min="20" max="999" step="0.01" aria-label="Tempo in BPM" value="${esc(S.tempoDraft || "")}" enterkeyhint="done"><span>BPM</span><span class="sp"></span><button class="key sm on" type="submit" ${S.tempoBusy ? "disabled" : ""}>${S.tempoBusy ? "Setting…" : "Set"}</button></form>`;
-  if (setHtml(sh, html)) { const f = $("#tempoin"); if (f) { f.focus({preventScroll: true}); f.select(); } }
+  const k = S.keyNow, opt = (v, label, on) => `<option value="${esc(v)}" ${on ? "selected" : ""}>${esc(label)}</option>`;
+  const key = k ? `<label class="kf">Key <select id="keyroot" aria-label="Key: root note">${NOTES.map((n, i) => opt(i, n, i === +S.keyDraft.root)).join("")}</select>`
+    + `<select id="keyscale" aria-label="Key: scale">${k.scales.map(x => opt(x, x, x === S.keyDraft.scale)).join("")}</select></label>` : '<span class="pgn">Reading the key…</span>';
+  const html = `<div class="shh"><h3>Tempo and key</h3><button class="key sm" id="tclose" aria-label="Close tempo and key"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>`
+    + `<form class="cpf" id="tempoform"><input id="tempoin" type="number" inputmode="decimal" min="20" max="999" step="0.01" aria-label="Tempo in BPM" value="${esc(S.tempoDraft || "")}" enterkeyhint="done"><span>BPM</span>${key}<span class="sp"></span><button class="key sm on" type="submit" ${S.tempoBusy ? "disabled" : ""}>${S.tempoBusy ? "Setting…" : "Set"}</button></form>`;
+  if (setHtml(sh, html)) { const f = $("#tempoin"); if (f && !(document.activeElement && document.activeElement.tagName === "SELECT")) { f.focus({preventScroll: true}); f.select(); } }
+}
+async function loadKey() {
+  const r = await command("key.get", {}, undefined, true);
+  if (r.ok) { S.keyNow = r.body; S.keyDraft = {root: r.body.root, scale: r.body.scale}; }
+  else S.keyNow = null;
+  renderTempo();
 }
 async function setTempo(raw) {
   const bpm = +String(raw).replace(",", ".");
   if (!(bpm >= 20 && bpm <= 999)) return toast("A tempo is a number from 20 to 999 BPM.");
   S.tempoBusy = true; renderTempo();
-  const r = await slowly(() => command("tempo.set", {bpm}));
+  const said = [];
+  let r = {ok: true};
+  if (!songOf().tempo || Math.abs(+songOf().tempo - bpm) > 0.001) { r = await slowly(() => command("tempo.set", {bpm})); if (r.ok) said.push(`${+bpm.toFixed(2)} BPM`); }
+  const k = S.keyNow, d = S.keyDraft;
+  if (r.ok && k && d && (+d.root !== k.root || d.scale !== k.scale)) {
+    r = await slowly(() => command("key.set", {root: +d.root, scale: d.scale}));
+    if (r.ok) said.push(`${NOTES[+d.root]} ${d.scale}`);
+  }
   S.tempoBusy = false;
-  if (r.ok) { toast(`Tempo ${+bpm.toFixed(2)} BPM.`); S.sheet = false; renderHist(); } else renderTempo();
+  if (r.ok) { toast(said.length ? `Set: ${said.join(", ")}.` : "Nothing changed."); S.sheet = false; renderHist(); } else renderTempo();
 }
 // ---- Songs: a new song, save, save as, open another. The desk follows the song (zpkt.app.songs) ----------------------
 function songTitle(name) {
@@ -2011,7 +2028,14 @@ document.addEventListener("click", async e => {
   if (t.id === "kredo" || t.id === "hredo") return stepHistory("redo");
   if (t.id === "khist") return showHistory();
   if (t.id === "setname") return openSongs();
-  if (t.id === "songtempo") { S.sheet = S.sheet === "tempo" ? false : "tempo"; S.tempoDraft = songOf().tempo ? String(+(+songOf().tempo).toFixed(2)) : ""; return renderHist(); }
+  if (t.id === "songtempo") { S.sheet = S.sheet === "tempo" ? false : "tempo"; S.tempoDraft = songOf().tempo ? String(+(+songOf().tempo).toFixed(2)) : ""; S.keyNow = null; renderHist(); if (S.sheet === "tempo") loadKey(); return; }
+  if (t.id === "mixnew") {
+    S.mixing = true; drawEmptyDesk();
+    const r = await slowly(() => command("surface.mixer"));
+    S.mixing = false;
+    if (r.ok) { toast("Made a Mixer surface for this song."); S.layouts = {}; await loadDesk(); } else drawEmptyDesk();
+    return;
+  }
   if (t.id === "tclose") { S.sheet = false; return renderHist(); }
   if (t.id === "sclose") { S.sheet = false; S.songMode = null; return renderHist(); }
   if (t.id === "songsave") return runSong("song.save", {}, "Saving…");
@@ -2042,6 +2066,10 @@ document.addEventListener("submit", e => {
 document.addEventListener("keydown", e => { if (e.target.id === "orgname" && e.key === "Escape") { e.preventDefault(); S.orgRen = null; renderOrg(true); } });
 // The name being typed is kept in the state, so no redraw of the sheet (an event from Live, a tab change) can lose it.
 document.addEventListener("input", e => { if (e.target.id === "cpname") S.cpDraft = e.target.value; if (e.target.id === "orgname") S.orgDraft = e.target.value; if (e.target.id === "songname") S.songDraft = e.target.value; if (e.target.id === "tempoin") S.tempoDraft = e.target.value; });
+document.addEventListener("change", e => {
+  if (e.target.id === "keyroot" && S.keyDraft) S.keyDraft.root = +e.target.value;
+  if (e.target.id === "keyscale" && S.keyDraft) S.keyDraft.scale = e.target.value;
+});
 $("#scrim").addEventListener("click", () => { S.sheet = false; S.orgRen = null; S.songMode = null; renderHist(); });
 // The History sheet and the list of soloed or muted tracks take nothing from the page behind them: a press outside
 // closes them and goes on to whatever was pressed (the scrim is only for the sheets that ask a question).

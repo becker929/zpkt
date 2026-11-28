@@ -60,6 +60,10 @@ These lines are decisions worth their reason:
   are moves, for the person at the page and the command line only (Anthony, 27 November 2026: "we need to build
   song management so we can create new, save, and load projects"). Each saves the song in front first, and the
   desk then follows the song (zpkt.app.songs). `song.list` is a read.
+- `key.set` is a move (the song's root and scale in Live 12, and its scale mode); `key.get` is a read.
+  `surface.mixer` is a make, like `page.make`: it writes a surface with every track's volume and Main's, for a
+  song of its own, which has none of desk.json's pages (the persona walkthrough, 27 November 2026: "No mixer in
+  the app, only Ask").
 - `steps.focus` is a move though it writes nothing into Live: it says what the sequencer has in hand, and with that
   what the MiniLab's pads will do, under your hands (as `page.arm` does). `steps.loop` moves the transport's loop.
 """
@@ -81,6 +85,9 @@ EFFECTS: dict[str, Effect] = {
     "mix.describe": "read",
     "tempo.set": "move",
     "tempo.scale": "move",
+    "key.get": "read",
+    "key.set": "move",
+    "surface.mixer": "make",
     "transport": "move",
     "monitor.choose": "move",
     "monitor.hear": "move",

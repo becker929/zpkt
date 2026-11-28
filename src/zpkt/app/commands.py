@@ -248,6 +248,66 @@ def tempo_set(desk: Desk, cmd: Command) -> Reply:
     return OK
 
 
+# ---- the key, and a mixer for a song of its own (the persona walkthrough, 27 November 2026) ----------------------------
+NOTES = ("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
+SCALES = ("Major", "Minor", "Dorian", "Phrygian", "Lydian", "Mixolydian", "Locrian", "Harmonic Minor", "Melodic Minor")
+
+
+def key_get(desk: Desk, cmd: Command) -> Reply:
+    """The song's key as Live 12 keeps it: {"root": 0 to 11, "note": "A", "scale": "Minor", "on": scale mode}."""
+    got = desk.conn.run("result = [song.root_note, song.scale_name, song.scale_mode]")
+    root, scale, on = int(got[0]), str(got[1]), bool(got[2])
+    return 200, {"ok": True, "root": root, "note": NOTES[root % 12], "scale": scale, "on": on, "scales": list(SCALES)}
+
+
+def key_set(desk: Desk, cmd: Command) -> Reply:
+    """Set the song's root note (0 to 11, or its name) and scale, and turn Live's scale mode on."""
+    raw = cmd.args.get("root")
+    root = NOTES.index(raw) if isinstance(raw, str) and raw in NOTES else _int(cmd.args, "root")
+    if not 0 <= root <= 11:
+        raise BadRequest("'root' is a note from 0 (C) to 11 (B)")
+    scale = _str(cmd.args, "scale")
+    if scale not in SCALES:
+        raise BadRequest(f"'scale' is one of {', '.join(SCALES)}")
+    desk.conn.run(f"song.root_note = {root}\nsong.scale_name = {scale!r}\nsong.scale_mode = True\nresult = 1")
+    return 200, {"ok": True, "root": root, "note": NOTES[root], "scale": scale}
+
+
+MIXER_GROUP = 6  # zpkt.live.page.MAX_IN_GROUP
+
+
+def surface_mixer(desk: Desk, cmd: Command) -> Reply:
+    """A surface with every track's volume and Main's, made from the song as it is: the mixer a song of its own has
+    none of (the desk's own sets have theirs in desk.json). At most 23 tracks, then Main."""
+    names = [
+        str(n) for n in desk.conn.run("result = [t.name for t in song.tracks] + [t.name for t in song.return_tracks]")
+    ]
+    names = [n for n in names if not n.casefold().startswith("mon ")][: P.MAX_CONTROLS - 1]
+    labels: list[str] = []
+    for n in names:  # each fader is labelled with its track's name, cut to what fits and told apart
+        short = n[: P.MAX_LABEL].strip() or "Track"
+        k = 2
+        while short in labels:
+            tail = str(k)
+            short, k = n[: P.MAX_LABEL - len(tail)].strip() + tail, k + 1
+        labels.append(short)
+    groups = [
+        {
+            "name": f"Tracks {k + 1}–{min(k + MIXER_GROUP, len(names))}",
+            "controls": [
+                {"target": f"{n}/volume", "role": "level", "label": lab}
+                for n, lab in zip(names[k : k + MIXER_GROUP], labels[k : k + MIXER_GROUP], strict=True)
+            ],
+        }
+        for k in range(0, len(names), MIXER_GROUP)
+    ]
+    groups.append(
+        {"name": "Main", "controls": [{"target": "Main/volume", "role": "level", "weight": 2, "label": "Main"}]}
+    )
+    spec = {"schema": P.SCHEMA, "title": "Mixer", "made_by": "you", "groups": groups}
+    return pages.make(desk, dataclasses.replace(cmd, args={"spec": spec, "prompt": "Mixer for this song"}))
+
+
 def tempo_scale(desk: Desk, cmd: Command) -> Reply:
     factor = _float(cmd.args, "factor")
     if factor <= 0:
@@ -520,6 +580,9 @@ COMMANDS: dict[str, tuple[Handler, bool]] = {
     "mix.describe": (mix_describe, True),
     "tempo.set": (tempo_set, True),
     "tempo.scale": (tempo_scale, True),
+    "key.get": (key_get, True),
+    "key.set": (key_set, True),
+    "surface.mixer": (surface_mixer, True),
     "transport": (transport, True),
     "monitor.choose": (monitor_choose, True),
     "monitor.hear": (monitor_hear, True),
