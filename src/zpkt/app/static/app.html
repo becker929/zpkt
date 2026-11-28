@@ -460,7 +460,7 @@ function renderTop() {
   const sg = songOf();
   const facts = [sg.tempo ? `${+(+sg.tempo).toFixed(2)} BPM` : "", sg.sig ? `${sg.sig[0]}/${sg.sig[1]}` : ""].filter(Boolean).join(" · ");
   const live = liveOk(), lb = loopBars(), mode = specMode();
-  setHtml($("#ident"), `<button id="setname" aria-haspopup="dialog" title="Songs: new, save, open">${esc(songTitle(sg.name || ""))}<svg class="dn" width="14" height="14" aria-hidden="true"><use href="#i-more"/></svg></button><span class="idf" id="songfacts">${facts}</span>`);
+  setHtml($("#ident"), `<button id="setname" aria-haspopup="dialog" aria-label="Songs: ${esc(songTitle(sg.name || ""))}. New, save, open" title="Songs: new, save, open">${esc(songTitle(sg.name || ""))}<svg class="dn" width="14" height="14" aria-hidden="true"><use href="#i-more"/></svg></button><span class="idf" id="songfacts">${facts}</span>`);
   if ($("#songtempo")) $("#songtempo").textContent = facts.replace(" BPM", "");  // the Song's own copy, drawn with the lanes: it follows too
   setHtml($("#loopbox"), !st.loop || st.loop === "off" ? "" : `<span class="pill" id="looppill" title="${esc(st.loop === "on" ? "loop" : st.loop)}" aria-label="Loop${lb ? `, bars ${lb[0]} to ${lb[1]}` : ""}${st.loop === "on" ? "" : ": " + esc(st.loop)}"><svg width="13" height="13"><use href="#i-loop"/></svg>${lb ? `${lb[0]}–${lb[1]}` : esc(st.loop === "on" ? "" : st.loop)}</span>`);
   setHtml($("#livebox"), `<span class="pill ${live ? "" : "warn"}" id="livepill">${live ? "Live" : esc(st.live)}</span>`);
