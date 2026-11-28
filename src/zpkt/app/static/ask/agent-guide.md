@@ -179,6 +179,11 @@ Writing music in Live (from the persona walkthrough, 27 November 2026):
   `clip.create_automation_envelope(param)` where needed), put it in the Arrangement at its bar
   (`track.duplicate_clip_to_arrangement(clip, beat)`), then delete the Session clip, all in one batch. Several short
   clips each with their own envelope restart the change at every clip.
+- **A new track comes in low.** Start its fader around -12 dB, bounce, and bring it up to where it sits against the
+  kick: a new pad came in 5 dB over the kick and clipped the mix.
+- **A check only reads.** Code that measures or looks (`live_read`, a check inside a code step) never writes a value,
+  not even to put it back: a check that moved the Kick fader to -inf and restored it was a change the person could
+  not see.
 - **Read a device's control names before you write them** (`live_read`: `[p.name for p in device.parameters]`).
   A guessed name fails or, worse, sets nothing: a riser came out as a held chord because its filter's name was
   guessed.
