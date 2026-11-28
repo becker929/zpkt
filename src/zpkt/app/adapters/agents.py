@@ -85,9 +85,25 @@ class AgentsAdapter:
         agent_commands.register(bus, self.context.desk)
         providers = self.providers or self.default_providers()
         guide = GUIDE.read_text() if GUIDE.exists() else ""
-        self.ask = Ask(self.data_dir, providers, ToolGate(bus), guide, home=self.home)
+        self.ask = Ask(self.data_dir, providers, ToolGate(bus), guide, home=self.home, now=self.song_now)
         self.routes = AskRoutes(self.ask, self.home)
         self.context.desk.mounts.add(PREFIX, self.routes)
+
+    def song_now(self) -> str:
+        """The song Live has open, as the app sees it now: sent with every turn, so an older chat about another song
+        (the songs are changed in the app, zpkt.app.songs) does not tell the agent what is open."""
+        from zpkt.app import songs
+
+        desk = self.context.desk
+        name = desk.settings.set_name
+        title = next((s["title"] for s in songs.read_index()["songs"] if s["name"] == name), name)
+        state = desk.snapshot()
+        tempo = state.get("tempo")
+        bpm = f", {float(tempo):g} BPM" if isinstance(tempo, (int, float)) else ""
+        return (
+            f'[The app, now: the song open in Live is "{title}" (set {name}{bpm}). Earlier turns of this chat may be '
+            "about another song; what is open now is this one. Read Live before you change it.]"
+        )
 
     def default_providers(self) -> dict[str, Provider]:
         return {

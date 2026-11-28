@@ -283,3 +283,29 @@ def test_the_guide_tells_the_agent_what_the_person_must_never_hear_about():
         assert words in guide, words
     assert "only window onto Ableton Live" in guide and "what they can tap" in guide
     assert "make the page now" in guide and "always work" in guide
+
+
+def test_every_turn_is_told_which_song_is_open_now(tmp_path):
+    """The songs change in the app (zpkt.app.songs) while a chat goes on: each turn carries the open song, read at
+    the time, so an older turn about another song does not tell the agent what is open. A failing line is left out."""
+    claude = ScriptedProvider("claude", [])
+    ask = make(tmp_path, claude=claude)
+    song = ["[open: HW002]"]
+    ask.now = lambda: song[0]
+    s = ask.create("work", "first", engine="claude")
+    ask.wait_idle()
+    song[0] = "[open: Midnight Signal]"
+    ask.send(s, "second", engine="claude")
+    ask.wait_idle()
+
+    def broken() -> str:
+        raise RuntimeError("Live is gone")
+
+    ask.now = broken
+    ask.send(s, "third", engine="claude")
+    ask.wait_idle()
+    first, second, third = (t.prompt for t in claude.seen)
+    assert "[open: HW002]" in first and "Midnight Signal" not in first
+    assert "[open: Midnight Signal]" in second
+    assert "third" in third and "[open:" not in third
+    assert ask.store.replay(s["id"])[0]["text"] == "first"  # the person's words stay as they were typed
