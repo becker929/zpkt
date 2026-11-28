@@ -1138,7 +1138,7 @@ function renderSongs(force) {
     : `<div class="shh" role="group" aria-label="This song"><button class="key sm" id="songsave" ${busy ? "disabled" : ""}><svg width="18" height="18"><use href="#i-flag"/></svg>Save</button><button class="key sm" id="songsaveas" ${busy ? "disabled" : ""}>Save as</button><span class="sp"></span><button class="key sm" id="songnew" ${busy ? "disabled" : ""}>New song</button></div>`;
   const rows = list.slice(S.songsAt, S.songsAt + 20).map(x => `<div class="orgrow ${x.current ? "sel" : ""}"><span class="onm" title="${esc(x.name)}">${esc(x.title)}</span><span class="pgn">${x.modified ? dayTime(x.modified) : ""}</span>${
     x.current ? '<span class="pill">Open now</span>' : `<button class="key sm" data-songopen="${esc(x.name)}" ${busy ? "disabled" : ""} aria-label="Open ${esc(x.title)}">Open</button>`}</div>`).join("");
-  const html = `<div class="shh"><h3>Songs</h3><button class="key sm" id="sclose" aria-label="Close"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>`
+  const html = `<div class="shh"><h3>Songs</h3><button class="key sm" id="sclose" aria-label="Close songs"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>`
     + `<div class="shh"><b class="onm" id="songnow">${esc(title)}</b>${busy ? `<span class="pill" role="status">${esc(busy)}</span>` : ""}</div>`
     + top
     + `<div class="hl" id="srows" data-total="${list.length}">${rows || '<div class="orgrow"><span class="onm">No songs yet.</span></div>'}</div>`
@@ -1156,7 +1156,11 @@ async function runSong(kind, args, label) {
     if (r.body.songs) S.songs = {current: r.body.current, songs: r.body.songs};
     S.songMode = null; S.songDraft = "";
     if (kind === "song.save") toast(r.body.saved ? "Saved." : "Nothing new to save.");
-    else { toast(kind === "song.open" ? `Opened ${songTitle(r.body.name)}.` : `Now on ${songTitle(r.body.name)}.`); S.layouts = {}; await loadDesk(); }
+    else {
+      toast(kind === "song.open" ? `Opened ${songTitle(r.body.name)}.` : `Now on ${songTitle(r.body.name)}.`);
+      S.layouts = {}; S.sheet = false; renderHist();  // done: the sheet closes on the song now open
+      await loadDesk();
+    }
     loadSongs();
   }
   renderSongs(true);
@@ -1700,7 +1704,9 @@ function updateMonitor() {
 function esc(t) { return String(t).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c])); }
 const TABS = ["song", "monitor", "ask"];  // the tabs besides the Desk
 function showTab(t) {
+  const sheetWas = S.sheet;
   S.tab = t;
+  if (sheetWas === "songs" || sheetWas === "org") { S.sheet = false; S.songMode = null; renderHist(); }  // another tab: the sheet goes
   $("#desk").hidden = t !== "desk"; $("#song").hidden = t !== "song"; $("#monitor").hidden = t !== "monitor";
   if (t === "monitor") renderMonitor();
   if (window.zpktNav) window.zpktNav.ask(t === "ask");   // the chat's frame, in #ask (shell/nav.js)

@@ -56,6 +56,7 @@ class Ask:
         tool_python: str = sys.executable,
         home: Path | None = None,
         budgets: dict[str, int] | None = None,
+        now: Callable[[], str] | None = None,
     ) -> None:
         self.dir = Path(data_dir)
         self.budgets = compaction.budgets(os.environ, budgets)  # tokens per engine before a compaction
@@ -68,6 +69,7 @@ class Ask:
         gate.ask, gate.tell = self.ask_person, self.store.emit  # a tool that waits for the person's tap (tools.py)
         self.notes = notes_module.Notes(self.store.emit, self.store.save, write_notes)
         self.max_live, self.tool_python = max_live, tool_python
+        self.now = now  # one line on what Live has open now, sent with every turn (the song may change between turns)
         self.app_url = ""  # where the agents' tool server reaches this app; the routes set it from each request
         self.runs: dict[str, Run] = {}
         self.threads: list[threading.Thread] = []
@@ -273,6 +275,13 @@ class Ask:
         engines = self.store.engine_state(s)
         resume = bool(engines.get(engine, {}).get("started"))
         text = prompt + (f"\n\n{context}" if context else "") + (f"\n\n{extra}" if extra else "")
+        if self.now is not None:
+            try:
+                line = self.now()
+            except Exception:  # the line is a help, never a reason for a turn not to start
+                line = ""
+            if line:
+                text += f"\n\n{line}"
         events = self.store.replay(s["id"])
         compacted = compaction.base(events) is not None
         if resume:

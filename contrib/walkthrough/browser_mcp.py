@@ -74,17 +74,26 @@ class Harness:
                     bits.append(t[:200])
         return ("Notices on screen: " + " | ".join(dict.fromkeys(bits))) if bits else "No notice on screen."
 
+    def frames(self) -> list[Any]:
+        """The page and the app's own frames in it (the Ask chat is a frame), in that order: what a person sees."""
+        app = urlparse(APP).netloc
+        inner = [f for f in self.page.frames if f is not self.page.main_frame and urlparse(f.url).netloc == app]
+        return [self.page.main_frame, *inner]
+
     def target(self, role: str | None, name: str | None, text: str | None, nth: int):
-        if role:
-            loc = self.page.get_by_role(role, name=name, exact=False) if name else self.page.get_by_role(role)
-        elif text:
-            loc = self.page.get_by_text(text, exact=False)
-        else:
+        """The element by role and name (or text), on the page or inside one of the app's frames."""
+        if not role and not text:
             raise ValueError("give a role (and name) or a text")
-        n = loc.count()
-        if n == 0:
-            raise ValueError(f"nothing on the page matches {role or 'text'} {name or text!r}")
-        return loc.nth(min(nth, n - 1)), n
+        for frame in self.frames():
+            if role:
+                loc = frame.get_by_role(role, name=name, exact=False) if name else frame.get_by_role(role)
+            else:
+                loc = frame.get_by_text(text, exact=False)
+            loc = loc.filter(visible=True)
+            n = loc.count()
+            if n:
+                return loc.nth(min(nth, n - 1)), n
+        raise ValueError(f"nothing on the page matches {role or 'text'} {name or text!r}")
 
     # ---- tools ------------------------------------------------------------------------------------------------------
     def t_open_app(self, path: str = "/app/") -> str:
@@ -99,12 +108,19 @@ class Harness:
         if urlparse(self.page.url).netloc != urlparse(APP).netloc:
             return "No page is open yet: call open_app first."
         snap = self.page.locator("body").aria_snapshot()
+        for frame in self.frames()[1:]:
+            try:
+                inner = frame.locator("body").aria_snapshot(timeout=2000)
+            except PWError:
+                continue
+            path = urlparse(frame.url).path
+            snap += f"\n\n--- inside the frame {path} (part of the page above) ---\n{inner}"
         if len(snap) > TEXT_CAP:
             snap = snap[:TEXT_CAP] + f"\n… ({len(snap) - TEXT_CAP} more characters; the page is long)"
         return f"Address: {self.page.url}\n{self.status()}\n\n{snap}"
 
     def t_read_text(self) -> str:
-        text = self.page.locator("body").inner_text()
+        text = "\n\n".join(f.locator("body").inner_text() for f in self.frames())
         return text[:TEXT_CAP]
 
     def t_click(self, role: str | None = None, name: str | None = None, text: str | None = None, nth: int = 0) -> str:
