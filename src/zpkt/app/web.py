@@ -182,9 +182,16 @@ def get_organize(desk: Desk, query: dict[str, str]) -> Response:
     return json_response({"units": pages.units_listing(desk)})
 
 
+def get_songs(desk: Desk, query: dict[str, str]) -> Response:
+    from zpkt.app import songs
+
+    return json_response(songs.listing(desk))
+
+
 APP_GET_ROUTES: dict[str, Callable[[Desk, dict[str, str]], Response]] = {
     "/api/pages": get_pages,
     "/api/organize": get_organize,
+    "/api/songs": get_songs,
     "/api/hear": get_hear,
     "/api/commands": get_commands,
     "/api/changes": get_changes,

@@ -212,6 +212,8 @@ svg{display:block}
 .spin::before{content:"";display:inline-block;box-sizing:border-box;width:10px;height:10px;border-radius:50%;border:2px solid currentColor;border-top-color:transparent;margin-right:6px;vertical-align:-1px;animation:mc-send .7s linear infinite}
 /* the identity line, the spectrum when no meter sends, the level meter */
 #ident{flex-wrap:nowrap;align-items:baseline}
+button#setname{background:none;border:0;color:inherit;font:inherit;font-weight:700;padding:0;min-height:44px;margin:-11px 0;cursor:pointer;display:inline-flex;align-items:center;gap:4px;max-width:100%}
+#songform input{min-width:0;flex:1}#srows .pgn{margin-left:auto;font-size:12px;opacity:.7;white-space:nowrap}
 #setname{font-size:15px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .idf{font:12px ui-monospace,Menlo,monospace;color:var(--mute);white-space:nowrap;flex:none}
 .pill.quiet{color:var(--mute);border-style:dashed}
@@ -458,7 +460,7 @@ function renderTop() {
   const sg = songOf();
   const facts = [sg.tempo ? `${+(+sg.tempo).toFixed(2)} BPM` : "", sg.sig ? `${sg.sig[0]}/${sg.sig[1]}` : ""].filter(Boolean).join(" · ");
   const live = liveOk(), lb = loopBars(), mode = specMode();
-  setHtml($("#ident"), `<b id="setname" title="The set open in Live">${esc(sg.name || "")}</b><span class="idf" id="songfacts">${facts}</span>`);
+  setHtml($("#ident"), `<button id="setname" aria-haspopup="dialog" title="Songs: new, save, open">${esc(songTitle(sg.name || ""))}<svg class="dn" width="14" height="14" aria-hidden="true"><use href="#i-more"/></svg></button><span class="idf" id="songfacts">${facts}</span>`);
   if ($("#songtempo")) $("#songtempo").textContent = facts.replace(" BPM", "");  // the Song's own copy, drawn with the lanes: it follows too
   setHtml($("#loopbox"), !st.loop || st.loop === "off" ? "" : `<span class="pill" id="looppill" title="${esc(st.loop === "on" ? "loop" : st.loop)}" aria-label="Loop${lb ? `, bars ${lb[0]} to ${lb[1]}` : ""}${st.loop === "on" ? "" : ": " + esc(st.loop)}"><svg width="13" height="13"><use href="#i-loop"/></svg>${lb ? `${lb[0]}–${lb[1]}` : esc(st.loop === "on" ? "" : st.loop)}</span>`);
   setHtml($("#livebox"), `<span class="pill ${live ? "" : "warn"}" id="livepill">${live ? "Live" : esc(st.live)}</span>`);
@@ -1071,11 +1073,11 @@ function renderSide() {
 function renderHist() {
   const sh = $("#sheet"), dock = $("#histdock"), docked = wide();
   if (docked && S.sheet === "hist") S.sheet = false;
-  $("#scrim").classList.toggle("on", S.sheet === "org");
+  $("#scrim").classList.toggle("on", S.sheet === "org" || S.sheet === "songs");
   sh.classList.toggle("on", !!S.sheet);
   navSync();
   sh.classList.toggle("hist", S.sheet === "hist");
-  sh.classList.toggle("org", S.sheet === "org");
+  sh.classList.toggle("org", S.sheet === "org" || S.sheet === "songs");
   const host = docked ? dock : S.sheet === "hist" ? sh : null, other = docked ? sh : dock;
   if (S.sheet !== "org" && other.querySelector("#hrows")) setHtml(other, "");
   if (host) {
@@ -1089,6 +1091,75 @@ function renderHist() {
     }
   }
   if (S.sheet === "org") renderOrg();
+  if (S.sheet === "songs") renderSongs();
+}
+// ---- Songs: a new song, save, save as, open another. The desk follows the song (zpkt.app.songs) ----------------------
+function songTitle(name) {
+  const s = S.songs && S.songs.songs.find(x => x.name === name);
+  return s ? s.title : name;
+}
+async function loadSongs() {
+  try {
+    const r = await fetch("/api/songs");
+    if (r.ok) S.songs = await r.json();
+  } catch (err) { /* keep the last list */ }
+  if (S.state) renderTop();
+  if (S.sheet === "songs") renderSongs(true);
+}
+function openSongs() {
+  S.sheet = S.sheet === "songs" ? false : "songs";
+  S.songsAt = 0; S.songMode = null; S.songDraft = "";
+  renderHist();
+  if (S.sheet === "songs") loadSongs();
+}
+function fitSongs() {
+  const list = $("#srows"), bar = $("#spgs");
+  if (!list || !bar) return;
+  const total = +list.dataset.total;
+  bar.hidden = false;
+  while (list.children.length > 1 && list.scrollHeight > list.clientHeight + 1) list.lastElementChild.remove();
+  S.songsFit = list.querySelectorAll(":scope > .orgrow").length;
+  const more = S.songsAt + S.songsFit < total;
+  bar.hidden = !(S.songsAt > 0 || more);
+  $("#spgn").textContent = total ? `${S.songsAt + 1}–${S.songsAt + S.songsFit} / ${total}` : "";
+  bar.querySelector('[data-songpg="-1"]').disabled = S.songsAt === 0;
+  bar.querySelector('[data-songpg="1"]').disabled = !more;
+}
+function renderSongs(force) {
+  const sh = $("#sheet");
+  if (S.sheet !== "songs") return;
+  if (force) sh.__html = null;
+  const d = S.songs || {current: "", songs: []}, list = d.songs, busy = S.songBusy;
+  const now = list.find(x => x.current), title = now ? now.title : songTitle(d.current || (S.state && S.state.set) || "");
+  S.songsAt = Math.max(0, Math.min(S.songsAt || 0, Math.max(0, list.length - 1)));
+  const isNew = S.songMode === "new";
+  const top = S.songMode
+    ? `<form class="cpf" id="songform"><input id="songname" aria-label="${isNew ? "Name of the new song" : "Name to save this song as"}" placeholder="${isNew ? "Name of the new song" : "Save this song as"}" maxlength="48" autocomplete="off" enterkeyhint="done" value="${esc(S.songDraft || "")}"><button class="key sm on" type="submit" ${busy ? "disabled" : ""}>${isNew ? "Create" : "Save as"}</button><button class="key sm" type="button" id="songcancel" aria-label="Cancel">${I("x")}</button></form>`
+    : `<div class="shh" role="group" aria-label="This song"><button class="key sm" id="songsave" ${busy ? "disabled" : ""}><svg width="18" height="18"><use href="#i-flag"/></svg>Save</button><button class="key sm" id="songsaveas" ${busy ? "disabled" : ""}>Save as</button><span class="sp"></span><button class="key sm" id="songnew" ${busy ? "disabled" : ""}>New song</button></div>`;
+  const rows = list.slice(S.songsAt, S.songsAt + 20).map(x => `<div class="orgrow ${x.current ? "sel" : ""}"><span class="onm" title="${esc(x.name)}">${esc(x.title)}</span><span class="pgn">${x.modified ? dayTime(x.modified) : ""}</span>${
+    x.current ? '<span class="pill">Open now</span>' : `<button class="key sm" data-songopen="${esc(x.name)}" ${busy ? "disabled" : ""} aria-label="Open ${esc(x.title)}">Open</button>`}</div>`).join("");
+  const html = `<div class="shh"><h3>Songs</h3><button class="key sm" id="sclose" aria-label="Close"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>`
+    + `<div class="shh"><b class="onm" id="songnow">${esc(title)}</b>${busy ? `<span class="pill" role="status">${esc(busy)}</span>` : ""}</div>`
+    + top
+    + `<div class="hl" id="srows" data-total="${list.length}">${rows || '<div class="orgrow"><span class="onm">No songs yet.</span></div>'}</div>`
+    + `<div class="pgs" id="spgs" role="group" aria-label="More songs" hidden><button class="key sm" type="button" data-songpg="-1" aria-label="Before"><svg class="back" width="18" height="18"><use href="#i-more"/></svg></button><span class="pgn" id="spgn"></span><button class="key sm" type="button" data-songpg="1" aria-label="After"><svg width="18" height="18"><use href="#i-more"/></svg></button></div>`;
+  if (setHtml(sh, html)) {
+    fitSongs();
+    if (S.songMode && $("#songname") && !busy) $("#songname").focus({preventScroll: true});
+  }
+}
+async function runSong(kind, args, label) {
+  S.songBusy = label; renderSongs(true);
+  const r = await slowly(() => command(kind, args));
+  S.songBusy = null;
+  if (r.ok) {
+    if (r.body.songs) S.songs = {current: r.body.current, songs: r.body.songs};
+    S.songMode = null; S.songDraft = "";
+    if (kind === "song.save") toast(r.body.saved ? "Saved." : "Nothing new to save.");
+    else { toast(kind === "song.open" ? `Opened ${songTitle(r.body.name)}.` : `Now on ${songTitle(r.body.name)}.`); S.layouts = {}; await loadDesk(); }
+    loadSongs();
+  }
+  renderSongs(true);
 }
 // ---- Organize pages: rename, reorder, archive and restore, paged with zero scrolling ------------------------------
 async function loadOrg() {
@@ -1914,6 +1985,13 @@ document.addEventListener("click", async e => {
   if (t.id === "kundo" || t.id === "hundo") return stepHistory("undo");
   if (t.id === "kredo" || t.id === "hredo") return stepHistory("redo");
   if (t.id === "khist") return showHistory();
+  if (t.id === "setname") return openSongs();
+  if (t.id === "sclose") { S.sheet = false; S.songMode = null; return renderHist(); }
+  if (t.id === "songsave") return runSong("song.save", {}, "Saving…");
+  if (t.id === "songsaveas" || t.id === "songnew") { S.songMode = t.id === "songnew" ? "new" : "as"; S.songDraft = ""; return renderSongs(true); }
+  if (t.id === "songcancel") { S.songMode = null; return renderSongs(true); }
+  if (t.dataset.songopen) return runSong("song.open", {name: t.dataset.songopen}, "Opening…");
+  if (t.dataset.songpg) { S.songsAt = Math.max(0, S.songsAt + (+t.dataset.songpg) * Math.max(1, S.songsFit || 1)); return renderSongs(true); }
   if (t.id === "hclose" || t.id === "oclose") { S.sheet = false; S.orgRen = null; return renderHist(); }
   if (t.dataset.org === "open") return openOrg();
   if (t.dataset.orgtab) { S.orgTab = t.dataset.orgtab; S.orgAt = 0; S.orgRen = null; S.orgSel = null; S.orgDel = null; return renderOrg(true); }
@@ -1930,12 +2008,13 @@ document.addEventListener("click", async e => {
 });
 document.addEventListener("submit", e => {
   if (e.target.id === "cpform") { e.preventDefault(); saveCheckpoint($("#cpname").value || S.cpDraft); }
+  if (e.target.id === "songform") { e.preventDefault(); const isNew = S.songMode === "new"; runSong(isNew ? "song.new" : "song.save_as", {title: $("#songname").value}, isNew ? "Making the new song…" : "Saving…"); }
   if (e.target.id === "orgform") { e.preventDefault(); runOrg({action: "rename", id: S.orgRen, name: $("#orgname").value}); }
 });
 document.addEventListener("keydown", e => { if (e.target.id === "orgname" && e.key === "Escape") { e.preventDefault(); S.orgRen = null; renderOrg(true); } });
 // The name being typed is kept in the state, so no redraw of the sheet (an event from Live, a tab change) can lose it.
-document.addEventListener("input", e => { if (e.target.id === "cpname") S.cpDraft = e.target.value; if (e.target.id === "orgname") S.orgDraft = e.target.value; });
-$("#scrim").addEventListener("click", () => { S.sheet = false; S.orgRen = null; renderHist(); });
+document.addEventListener("input", e => { if (e.target.id === "cpname") S.cpDraft = e.target.value; if (e.target.id === "orgname") S.orgDraft = e.target.value; if (e.target.id === "songname") S.songDraft = e.target.value; });
+$("#scrim").addEventListener("click", () => { S.sheet = false; S.orgRen = null; S.songMode = null; renderHist(); });
 // The History sheet and the list of soloed or muted tracks take nothing from the page behind them: a press outside
 // closes them and goes on to whatever was pressed (the scrim is only for the sheets that ask a question).
 document.addEventListener("pointerdown", e => {
@@ -1948,6 +2027,7 @@ document.addEventListener("pointerdown", e => {
 function apply(m) {
   let part = "all";
   if (m.t === "full") S.state = m.state;
+  else if (m.t === "song") { loadSongs(); return loadDesk(); }
   else if (m.t === "hear") { S.hear = m; if (!S.state) return; renderTop(); renderBottom(); updateMonitor(); if (S.sheet === "hist" || wide()) redrawHist(); return renderDesk(); }
   else if (m.t === "hist") {
     const top = m.entries.reduce((x, e) => Math.max(x, e.id), 0);
@@ -2010,6 +2090,7 @@ function connect() {
   es.onerror = () => { S.lockReason = "Lost the connection. Trying again."; renderHear(); };
 }
 loadDesk().then(connect);
+loadSongs();
 // Crossing the desktop breakpoint draws or drops the side column.
 window.matchMedia("(min-width:1100px)").addEventListener("change", render);
 route();

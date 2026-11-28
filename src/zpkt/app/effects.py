@@ -56,6 +56,10 @@ These lines are decisions worth their reason:
   new files in the bounce folder, and puts the loop and a heard Pin back, so it saves no version and leaves no
   History row. It can render nothing but the mix and the set's own tracks (never a monitor track), at most four
   files and ten minutes of audio a call. `render.measure` only reads audio files and answers in a few numbers.
+- The `song.*` commands that change which song Live has (`song.new`, `song.save`, `song.save_as`, `song.open`)
+  are moves, for the person at the page and the command line only (Anthony, 27 November 2026: "we need to build
+  song management so we can create new, save, and load projects"). Each saves the song in front first, and the
+  desk then follows the song (zpkt.app.songs). `song.list` is a read.
 - `steps.focus` is a move though it writes nothing into Live: it says what the sequencer has in hand, and with that
   what the MiniLab's pads will do, under your hands (as `page.arm` does). `steps.loop` moves the transport's loop.
 """
@@ -128,6 +132,11 @@ EFFECTS: dict[str, Effect] = {
     "live.run": "move",
     "live.read": "read",
     "live.open_set": "move",
+    "song.list": "read",
+    "song.new": "move",
+    "song.save": "move",
+    "song.save_as": "move",
+    "song.open": "move",
     "live.render_loop": "move",
     "live.set_tempo": "move",
     "live.transport": "move",

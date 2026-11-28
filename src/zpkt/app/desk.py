@@ -10,6 +10,7 @@ Nothing here makes or plays sound: the page shows and arms controls; the mix its
 from __future__ import annotations
 
 import contextlib
+import dataclasses
 import json
 import logging
 import os
@@ -141,13 +142,18 @@ class Settings:
     # code you allowed an agent to run for good (zpkt.app.abilities): the rig's abilities_dir
     abilities_dir: Path = field(default_factory=lambda: config.rig().abilities_dir)
     hosts: tuple[str, ...] = ()  # more Host names the web server answers for (ZPKT_APP_HOSTS); see web.host_allowed
+    home_set: str | None = None  # the set sources.json was written for (its pages, references); None: set_name
 
     @classmethod
     def from_env(cls) -> Settings:
         http_port = int(os.environ.get("MIXDESK_PORT", "8985"))
         sources = read_sources()
-        set_name = sources["set"]
+        from zpkt.app import songs
+
+        current = songs.read_index().get("current")  # the song the desk was last on (zpkt.app.songs)
+        set_name = current if current and config.rig().set_path(current).exists() else sources["set"]
         return cls(
+            home_set=sources["set"],
             set_name=set_name,
             viz_dir=Path(sources["dir"]).expanduser(),
             http_port=http_port,
@@ -160,6 +166,19 @@ class Settings:
             pages_dir=config.rig().sets_dir / "pages" / set_name,
             changes_file=changes.path_for(set_name),
             hosts=hosts_from_env(),
+        )
+
+    def for_song(self, name: str) -> Settings:
+        """The same desk, on another set: its History, checkpoints, surfaces, Pages and change stream are that set's."""
+        sets = config.rig().sets_dir
+        return dataclasses.replace(
+            self,
+            set_name=name,
+            home_set=self.home_set or self.set_name,
+            checkpoints_dir=live_state.folder(name),
+            surfaces_dir=sets / "surfaces" / name,
+            pages_dir=sets / "pages" / name,
+            changes_file=changes.path_for(name) if self.changes_file else None,
         )
 
 
@@ -207,9 +226,11 @@ class Desk:
         self.monitor = Monitor(self)
         self.abilities = abilities.Store(settings.abilities_dir)  # code you allowed an agent to run for good
         self.mounts = Mounts()  # the one seam for an adapter's pages: route sets under a path prefix (Ask, the Song)
+        self.guard: SetGuard | None = None
         self.bus = self._make_bus()
 
     def _make_bus(self) -> Bus:
+        from zpkt.app import songs
         from zpkt.app.commands import register_all
 
         def open_set() -> str:
@@ -217,6 +238,7 @@ class Desk:
                 return openset.open_set_name(self.conn)
 
         guard = SetGuard(self.settings.set_name, open_set)
+        self.guard = guard
         bus = Bus(guard=guard, lock=lambda: self.conn.exclusive(wait_s=5.0), version_before=self.version_before)
         register_all(bus, self)
         change.register(bus, self)
@@ -224,6 +246,7 @@ class Desk:
         steps_commands.register(bus, self)
         bounce_commands.register(bus, self)
         jobs.register(bus, self.conn, self.descriptions.clear)
+        songs.register(bus, self)
         return bus
 
     # ---- reading the state -----------------------------------------------------------------------------------------
@@ -267,7 +290,49 @@ class Desk:
         archived or not, before the person's order."""
         d = json.loads(self.settings.desk_file.read_text())
         made: list[dict[str, Any]] = surfaces.pages(self.settings.set_name, self.settings.surfaces_dir)
-        return [*d["pages"], *made]
+        own = d["pages"] if self.desk_song else []  # desk.json's pages name HW002's tracks: only for its sets
+        return [*own, *made]
+
+    @property
+    def home_set(self) -> str:
+        """The set sources.json was written for: desk.json's pages and the reference tracks are its."""
+        return self.settings.home_set or self.settings.set_name
+
+    @property
+    def desk_song(self) -> bool:
+        """Whether the desk's own pages and the monitor's reference tracks belong to the song the desk is on."""
+        from zpkt.app import songs
+
+        return songs.is_desk_song(self.settings.set_name, self.home_set)
+
+    def use_song(self, name: str) -> None:
+        """Move the desk onto another set Live has just opened or saved (zpkt.app.songs): that set's History,
+        checkpoints, surfaces and Pages, the wrong-set guard held to it, the pager and the page loaded again."""
+        settings = self.settings.for_song(name)
+        stream = changes.Stream(settings.changes_file) if settings.changes_file else None
+        hist = history.History(
+            name, self.labels, settings.history_dir, checkpoints=settings.checkpoints_dir, changes=stream
+        )
+        hist.place = self.place_of
+        hist.quiet.add(METER_KEY)
+        with self.lock:
+            self.settings = settings
+            self.history = hist
+            self._arrangement = None
+            self.steps_focus = None
+            self.steps_rev += 1
+            self.state = deskstate.initial()
+            self._ensured = self._started = False
+        self.descriptions.clear()
+        if self.guard is not None:
+            self.guard.page_set = name
+            self.guard.believe(name)
+            self.guard.forget()
+        try:
+            self.restart_pager()
+        except (LiveError, OSError) as exc:
+            self.set_state(None, f"Live does not answer ({str(exc)[:80]})")
+        self.push_app({"t": "song", "name": name})
 
     def pages_dir(self) -> Path:
         """Where the set's saved Pages are, and beside them the pages' order and archive (organize.py)."""

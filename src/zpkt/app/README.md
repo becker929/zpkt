@@ -16,6 +16,7 @@ are libraries and never open one.
 | Pages of controls, drawn and mapped to the MiniLab | `/app/` Desk; `zpkt page make` | Pages |
 | Two or more settings of the same controls, to switch between while Live plays | pads on a Page | Pages (Compare) |
 | The song in Live: tracks, arrangement clips, locators | `/app/` Song tab | The Song |
+| A new song, save, save as, open another | a tap on the song's name in the Hear bar | Songs |
 | A drum pattern on 16 pads, painted along its track | `/app/` Song tab: Steps and Paint | Steps |
 | Chat with Claude and Gemini | `/app/ask/` | Ask |
 | Live's sound in the browser | the Listen button; `/app/listen` | Listen |
@@ -684,6 +685,25 @@ Listen is on. This is how alternatives are tried; there is no other feature for 
 `tests/live/test_page.py` holds the model and the linter, `tests/app/test_compare.py` the press, the undo, the
 derived state, the agent's make and update and the fake MiniLab's pad, and `tests/app/test_compare_page.py` the
 page in WebKit.
+
+## Songs
+
+`songs.py` (Anthony, 27 November 2026: "we need to build song management so we can create new, save, and load
+projects"). A tap on the song's name at the top of the Hear bar opens the Songs sheet: Save, Save as, New song, and
+the songs the app knows, newest first, each with Open. They are `song.save`, `song.save_as`, `song.new` and
+`song.open` (moves; the agent rule refuses them for an agent) and `song.list` (`GET /api/songs`).
+
+- A song is a set in the rig's `sets_dir`. The app's list is `<sets_dir>/songs.json`: each song's file name, the
+  title the person gave, and `desk`, whether the mix desk's own pages (`contrib/mixdesk/desk.json`) and the monitor's
+  reference tracks belong to it (the HW002 sets `sources.json` was written for, and copies of them). A new song's
+  file is `song_<title>.als`; the rig's `set_prefixes` must hold `song_`.
+- Every command saves the song in front first (when it is a file in `sets_dir`), so Live never asks about unsaved
+  changes. New is File > New Live Set, then Save As under the new name. Live will not reload the set it has open, so
+  Open on the song in front only moves the desk onto it.
+- **The desk follows the song** (`Desk.use_song`): History, checkpoints, surfaces, Pages and the change stream are
+  the new song's, the wrong-set guard is held to it, the pager loads again, and the page is told (`{"t": "song"}`)
+  and reloads the desk. A song that is not a desk song gets no reference tracks and none of desk.json's pages.
+- The app starts on `songs.json`'s current song, or on `sources.json`'s set when there is none.
 
 ## The Song
 
