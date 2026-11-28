@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>zpkt walkthrough journal</title>
+<style>
+:root{--bg:#f6f5f2;--card:#fff;--ink:#1d1c1a;--mut:#6b6760;--line:#e3e0d9;--plan:#5b6b7a;--res:#3d4f5f;--find:#b4561c;--block:#b3261e;--praise:#2f7d46;--cp:#2456a6;--q:#7a4fa3}
+@media (prefers-color-scheme:dark){:root{--bg:#141413;--card:#1e1e1c;--ink:#ecebe7;--mut:#a29e96;--line:#34332f;--plan:#9fb0c0;--res:#c3d0dc;--find:#f0904f;--block:#f2766c;--praise:#6fc68b;--cp:#7ea6ec;--q:#c39bec}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+header{position:sticky;top:0;z-index:2;background:var(--bg);border-bottom:1px solid var(--line);padding:12px 16px 10px}
+.wrap{max-width:860px;margin:0 auto}
+h1{font-size:18px;margin:0 0 6px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+h1 small{font-weight:400;color:var(--mut);font-size:13px}
+select{font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);max-width:100%}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+.chip{font:inherit;font-size:13px;padding:5px 11px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;min-height:32px}
+.chip[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.stats{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--mut);margin-top:8px}
+.stats b{color:var(--ink);font-variant-numeric:tabular-nums}
+.live{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--mut)}
+.live i{width:8px;height:8px;border-radius:50%;background:var(--praise)}
+.live.stale i{background:var(--mut)}
+main{padding:12px 16px 60px}
+.cps{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 12px}
+.cps span{font-size:12px;padding:3px 9px;border-radius:6px;background:var(--card);border:1px solid var(--line);color:var(--cp)}
+.e{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:10px;padding:10px 14px;margin:8px 0}
+.e .h{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.e .k{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.e .t{font-weight:600}
+.e .w{margin-left:auto;font-size:12px;color:var(--mut);font-variant-numeric:tabular-nums}
+.e .b{margin-top:4px;white-space:pre-wrap;overflow-wrap:anywhere}
+.e img{display:block;margin-top:8px;max-width:100%;border-radius:6px;border:1px solid var(--line);cursor:zoom-in}
+.e.plan{border-left-color:var(--plan)}.e.plan .k{color:var(--plan)}
+.e.result{border-left-color:var(--res)}.e.result .k{color:var(--res)}
+.e.finding{border-left-color:var(--find)}.e.finding .k{color:var(--find)}
+.e.blocker{border-left-color:var(--block)}.e.blocker .k{color:var(--block)}
+.e.praise{border-left-color:var(--praise)}.e.praise .k{color:var(--praise)}
+.e.checkpoint{border-left-color:var(--cp)}.e.checkpoint .k{color:var(--cp)}
+.e.question{border-left-color:var(--q)}.e.question .k{color:var(--q)}
+.e.summary,.e.leg{background:transparent;border-style:dashed}
+.e.tool,.e.tool-error{padding:4px 12px;font-size:13px;color:var(--mut);border-radius:6px}
+.e.tool .b,.e.tool-error .b{display:inline;margin-left:6px;font-family:ui-monospace,Menlo,monospace;font-size:12px}
+.e.tool-error .k{color:var(--block)}
+.e.tool .h,.e.tool-error .h{display:inline}
+.empty{color:var(--mut);padding:30px 0;text-align:center}
+#big{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:9}
+#big.on{display:flex}#big img{max-width:96vw;max-height:94vh}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <h1>Walkthrough journal <small id="sub"></small><span class="live" id="live"><i></i><span>live</span></span></h1>
+  <select id="run" aria-label="Run"></select>
+  <div class="bar" role="group" aria-label="Show">
+    <button class="chip" data-f="story" aria-pressed="true">Story</button>
+    <button class="chip" data-f="issues" aria-pressed="false">Findings and blockers</button>
+    <button class="chip" data-f="praise" aria-pressed="false">What worked</button>
+    <button class="chip" data-f="all" aria-pressed="false">Everything, with clicks</button>
+  </div>
+  <div class="stats" id="stats"></div>
+</div></header>
+<main><div class="wrap"><div class="cps" id="cps"></div><div id="list"></div></div></main>
+<div id="big" role="dialog" aria-label="Screenshot"><img alt=""></div>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const F = {story: ["leg", "plan", "result", "finding", "blocker", "praise", "question", "checkpoint", "summary"],
+  issues: ["finding", "blocker"], praise: ["praise"], all: null};
+let runs = [], cur = null, rows = [], filter = "story", lastLen = -1;
+const time = t => { const d = new Date(t * 1000); return d.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"}); };
+async function loadRuns() {
+  runs = await (await fetch("/api/runs")).json();
+  const want = new URLSearchParams(location.search).get("run");
+  cur = cur || (runs.find(r => r.id === want) || runs[0] || {}).id;
+  $("#run").innerHTML = runs.map(r => `<option value="${esc(r.id)}" ${r.id === cur ? "selected" : ""}>${esc(r.id)} · ${r.entries} entries</option>`).join("") || "<option>No runs yet</option>";
+}
+async function loadJournal() {
+  if (!cur) { $("#list").innerHTML = '<div class="empty">No runs yet.</div>'; return; }
+  const text = await (await fetch(`/runs/${encodeURIComponent(cur)}/journal.jsonl`)).text();
+  rows = text.split("\n").filter(Boolean).map(l => { try { return JSON.parse(l); } catch (e) { return null; } }).filter(Boolean);
+  const r = runs.find(x => x.id === cur) || {};
+  const latest = rows.length ? rows[rows.length - 1].at : 0, fresh = Date.now() / 1000 - latest < 180;
+  $("#live").classList.toggle("stale", !fresh); $("#live span").textContent = fresh ? "live" : latest ? `last entry ${time(latest)}` : "waiting";
+  $("#sub").textContent = `${r.model || ""} · ${(r.legs || []).length} leg${(r.legs || []).length === 1 ? "" : "s"}`;
+  $("#cps").innerHTML = (r.checkpoints || []).map(c => `<span title="checkpoint">${esc(c)}</span>`).join("");
+  const n = k => rows.filter(x => x.kind === k).length;
+  $("#stats").innerHTML = `<span><b>${n("finding")}</b> findings</span><span><b>${n("blocker")}</b> blockers</span><span><b>${n("praise")}</b> worked</span><span><b>${n("tool")}</b> page actions</span><span><b>${n("tool-error")}</b> failed actions</span>`;
+  if (rows.length !== lastLen) { lastLen = rows.length; draw(); }
+}
+function draw() {
+  const keep = F[filter], list = rows.filter(x => !keep || keep.includes(x.kind));
+  $("#list").innerHTML = list.map(x => `<div class="e ${esc(x.kind)}"><div class="h"><span class="k">${esc(x.kind === "tool" ? "click" : x.kind)}</span><span class="t">${esc(x.title)}</span>${x.kind.startsWith("tool") ? `<span class="b">${esc(x.body)}</span>` : ""}<span class="w">leg ${esc(x.leg)} · ${time(x.at)}</span></div>${!x.kind.startsWith("tool") && x.body ? `<div class="b">${esc(x.body)}</div>` : ""}${x.shot ? `<img loading="lazy" src="/runs/${encodeURIComponent(cur)}/shots/${encodeURIComponent(x.shot)}" alt="Screenshot: ${esc(x.title)}">` : ""}</div>`).join("") || '<div class="empty">Nothing here yet.</div>';
+}
+document.addEventListener("click", e => {
+  const c = e.target.closest(".chip");
+  if (c) { filter = c.dataset.f; document.querySelectorAll(".chip").forEach(b => b.setAttribute("aria-pressed", b === c)); draw(); }
+  if (e.target.matches(".e img")) { $("#big img").src = e.target.src; $("#big").classList.add("on"); }
+  else if (e.target.closest("#big")) $("#big").classList.remove("on");
+});
+$("#run").addEventListener("change", e => { cur = e.target.value; lastLen = -1; history.replaceState(null, "", `?run=${encodeURIComponent(cur)}`); loadJournal(); });
+async function tick() { try { await loadRuns(); await loadJournal(); } catch (e) { /* the server restarts */ } }
+tick(); setInterval(tick, 8000);
+</script>
+</body>
+</html>
